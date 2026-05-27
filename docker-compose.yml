@@ -1,0 +1,60 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: gaming_gear
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d gaming_gear"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend-migrate:
+    build:
+      context: ./apps/backend
+      target: migrate
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/gaming_gear?schema=public
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  backend:
+    build:
+      context: ./apps/backend
+      target: runner
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/gaming_gear?schema=public
+      HOSTNAME: 0.0.0.0
+      PORT: 3001
+    ports:
+      - "3001:3001"
+    depends_on:
+      db:
+        condition: service_healthy
+      backend-migrate:
+        condition: service_completed_successfully
+
+  frontend:
+    build:
+      context: ./apps/frontend
+      target: runner
+    environment:
+      API_URL: http://backend:3001
+      HOSTNAME: 0.0.0.0
+      PORT: 3000
+    ports:
+      - "3000:3000"
+    depends_on:
+      backend:
+        condition: service_started
+
+volumes:
+  postgres_data:

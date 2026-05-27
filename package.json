@@ -1,0 +1,14 @@
+{
+  "name": "recommend-gaming-gear",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "docker:build": "docker compose build",
+    "docker:up": "docker compose up --build",
+    "docker:down": "docker compose down",
+    "frontend:dev": "npm --prefix apps/frontend run dev",
+    "backend:dev": "npm --prefix apps/backend run dev",
+    "backend:prisma:generate": "npm --prefix apps/backend run prisma:generate",
+    "backend:prisma:migrate": "npm --prefix apps/backend run prisma:migrate"
+  }
+}
