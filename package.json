@@ -7,8 +7,7 @@
     "docker:up": "docker compose up --build",
     "docker:down": "docker compose down",
     "frontend:dev": "npm --prefix apps/frontend run dev",
-    "backend:dev": "npm --prefix apps/backend run dev",
-    "backend:prisma:generate": "npm --prefix apps/backend run prisma:generate",
-    "backend:prisma:migrate": "npm --prefix apps/backend run prisma:migrate"
+    "backend:dev": "cd apps/backend && uvicorn app.main:app --reload --host 0.0.0.0 --port 3001",
+    "backend:test": "cd apps/backend && pytest"
   }
 }

@@ -1,36 +1,128 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Recommend Gaming Gear Backend
+
+FastAPI backend skeleton for the project.
+
+## Structure
+
+The project follows the layered FastAPI layout from the referenced best-practices
+article:
+
+- `app/main.py` - FastAPI application entry point
+- `app/routers/` - public API routes
+- `app/core/` - configuration and core settings
+- `app/db/` - database engine/session setup
+- `app/dependencies.py` - shared FastAPI dependencies
+- `app/models/` - future SQLAlchemy models
+- `app/schemas/` - Pydantic schemas
+- `app/services/` - future business logic
+- `app/internal/` - future internal-only routes/tools
+- `tests/` - API tests
 
 ## Getting Started
 
-First, run the development server:
+Install dependencies:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Start the API:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+uvicorn app.main:app --reload --host 0.0.0.0 --port 3001
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Run tests:
 
-## Learn More
+```bash
+pytest
+```
 
-To learn more about Next.js, take a look at the following resources:
+Health check:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+curl http://localhost:3001/api/health/
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Validate a profile without saving:
 
-## Deploy on Vercel
+```bash
+curl -X POST http://localhost:3001/api/profile/validate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "game": "valorant",
+    "dpi": 800,
+    "sensitivity": 0.32,
+    "grip_style": "claw",
+    "hand_length_mm": 185,
+    "hand_width_mm": 95.5,
+    "current_mouse": {
+      "mouse_name": "Logitech G Pro X Superlight",
+      "likes": ["เบา", "wireless", "balance"],
+      "dislikes": ["ลื่น", "click ไม่ชอบ"]
+    },
+    "preference": {
+      "preferred_shape": "symmetric",
+      "connectivity": "wireless_only",
+      "budget_min_thb": 3000,
+      "budget_max_thb": 6000,
+      "thailand_only": true
+    }
+  }'
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Save after a successful recommendation:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+curl -X POST http://localhost:3001/api/recommendations/complete \
+  -H "Content-Type: application/json" \
+  -d '{
+    "profile": {
+      "game": "valorant",
+      "dpi": 800,
+      "sensitivity": 0.32,
+      "grip_style": "claw",
+      "hand_length_mm": 185,
+      "hand_width_mm": 95.5,
+      "current_mouse": {
+        "mouse_name": "Logitech G Pro X Superlight",
+        "likes": ["เบา", "wireless", "balance"],
+        "dislikes": ["ลื่น", "click ไม่ชอบ"]
+      },
+      "preference": {
+        "preferred_shape": "symmetric",
+        "connectivity": "wireless_only",
+        "budget_min_thb": 3000,
+        "budget_max_thb": 6000,
+        "thailand_only": true
+      }
+    },
+    "recommendation_summary": "Matched with a light symmetric wireless mouse."
+  }'
+```
+
+Read the latest profile:
+
+```bash
+curl http://localhost:3001/api/profiles/
+```
+
+Read a profile by id:
+
+```bash
+curl http://localhost:3001/api/profiles/<profile-id>
+```
+
+## Database Schema
+
+The MVP stores profile data in Postgres with SQLAlchemy:
+
+- `user_sessions` - anonymous user sessions
+- `mouse_fit_profiles` - game, DPI, sensitivity, grip, hand size, current mouse feedback, and preferences
+- `diagnostic_results` - placeholder table for future aim-test metrics and trait summaries
+
+Profile data is saved only after `POST /api/recommendations/complete` succeeds.
+Tables are created automatically on API startup for the MVP. Add Alembic before
+production migrations become important.

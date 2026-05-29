@@ -15,32 +15,20 @@ services:
       timeout: 5s
       retries: 10
 
-  backend-migrate:
-    build:
-      context: ./apps/backend
-      target: migrate
-    environment:
-      DATABASE_URL: postgresql://postgres:postgres@db:5432/gaming_gear?schema=public
-    depends_on:
-      db:
-        condition: service_healthy
-    restart: "no"
-
   backend:
     build:
       context: ./apps/backend
       target: runner
     environment:
-      DATABASE_URL: postgresql://postgres:postgres@db:5432/gaming_gear?schema=public
-      HOSTNAME: 0.0.0.0
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@db:5432/gaming_gear
+      APP_NAME: Recommend Gaming Gear API
+      API_PREFIX: /api
       PORT: 3001
     ports:
       - "3001:3001"
     depends_on:
       db:
         condition: service_healthy
-      backend-migrate:
-        condition: service_completed_successfully
 
   frontend:
     build:

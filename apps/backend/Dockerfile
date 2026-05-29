@@ -1,36 +1,27 @@
 # syntax=docker/dockerfile:1
 
-FROM node:24-alpine AS base
-WORKDIR /app
-ENV NEXT_TELEMETRY_DISABLED=1
+FROM python:3.13-slim AS base
 
-FROM base AS deps
-COPY package.json package-lock.json ./
-RUN npm ci
-
-FROM deps AS source
-COPY . .
-
-FROM source AS migrate
-CMD ["npm", "run", "prisma:deploy"]
-
-FROM source AS builder
-RUN npm run build
-
-FROM node:24-alpine AS runner
-WORKDIR /app
-ENV NODE_ENV=production
-ENV NEXT_TELEMETRY_DISABLED=1
-ENV HOSTNAME=0.0.0.0
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
 ENV PORT=3001
 
-RUN addgroup -S nodejs && adduser -S nextjs -G nodejs
+WORKDIR /app
 
-COPY --from=builder /app/public ./public
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+RUN addgroup --system django && adduser --system --ingroup django django
 
-USER nextjs
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY . .
+RUN chown -R django:django /app
+
+FROM base AS migrate
+CMD ["python", "-c", "print('No database migrations configured yet.')"]
+
+FROM base AS runner
+
+USER django
 EXPOSE 3001
 
-CMD ["node", "server.js"]
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT}"]
