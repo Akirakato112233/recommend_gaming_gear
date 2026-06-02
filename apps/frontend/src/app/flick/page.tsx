@@ -594,18 +594,30 @@ export default function FlickTest() {
         )}
 
         {phase !== "running" && phase !== "countdown" && (
-          <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/70 px-6">
-            <div className="w-full max-w-xl border border-zinc-800 bg-black p-6 text-center shadow-2xl">
+          <div className="absolute inset-0 z-20 flex items-center justify-center overflow-y-auto bg-black/70 px-6 py-8">
+            <div className="max-h-[calc(100vh-4rem)] w-full max-w-2xl overflow-y-auto border border-zinc-800 bg-black p-6 text-center shadow-2xl">
               <p className="text-sm uppercase text-zinc-500">
                 {phase === "paused" ? "Paused" : "30 seconds"}
               </p>
               <h2 className="mt-3 text-3xl font-semibold text-white">
-                Flick the target into the center crosshair.
+                ด่านนี้เช็ก flick feel ว่าเมาส์หยุดตรงใจไหม
               </h2>
               <p className="mt-4 leading-7 text-zinc-400">
-                Black background, one target, click to confirm your flick. Misses
-                are labeled as overshoot or undershoot.
+                flick ให้เป้าเข้ากลาง crosshair แล้วคลิกยืนยัน ด่านนี้จะช่วยให้คุณเข้าใจว่าเมาส์
+                “ให้ฟีล” แบบไหนเวลายิงเป้าเร็ว ๆ
               </p>
+              <div className="mt-5 text-left">
+                <p className="text-sm font-semibold text-zinc-200">ระหว่างเล่น ลองสังเกตว่า:</p>
+                <ul className="mt-3 list-disc space-y-2 pl-5 text-sm leading-6 text-zinc-400">
+                  <li>เมาส์หยุดตรงที่คุณต้องการไหม</li>
+                  <li>คุณ flick เลยเป้าบ่อยหรือหยุดก่อนเป้าบ่อย</li>
+                  <li>aim รู้สึกนิ่งแค่ไหนหลังหยุด flick</li>
+                  <li>การแก้ aim เล็ก ๆ หลัง flick ทำได้ง่ายไหม</li>
+                </ul>
+                <p className="mt-4 text-sm leading-6 text-zinc-500">
+                  อย่าโฟกัสแค่คะแนน ให้โฟกัสที่ความรู้สึกตอนเล่นด้วย โดยเฉพาะจังหวะหยุดเป้า
+                </p>
+              </div>
               <DiagnosticProfileControls onProfileChange={refreshAimSensitivityScale} />
               <button
                 className="mt-6 w-full border border-emerald-400 bg-emerald-400 px-5 py-3 font-semibold text-black transition hover:bg-emerald-300"

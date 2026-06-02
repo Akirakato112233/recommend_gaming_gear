@@ -109,6 +109,31 @@ export function calculateGameAngularSpeed(
   return Math.round(degreesPerCount * 1000) / 1000;
 }
 
+export function calculateInchesPer360(
+  profile: Pick<MouseFitProfileDraft, "dpi" | "game" | "sensitivity">,
+) {
+  const dpi = toPositiveNumber(profile.dpi);
+  const degreesPerCount = calculateGameDegreesPerMouseCount(profile);
+
+  if (dpi === null || degreesPerCount === null) {
+    return null;
+  }
+
+  return 360 / (dpi * degreesPerCount);
+}
+
+export function calculateCentimetersPer360(
+  profile: Pick<MouseFitProfileDraft, "dpi" | "game" | "sensitivity">,
+) {
+  const inchesPer360 = calculateInchesPer360(profile);
+
+  if (inchesPer360 === null) {
+    return null;
+  }
+
+  return inchesPer360 * 2.54;
+}
+
 function calculateGameDegreesPerMouseCount(
   profile: Pick<MouseFitProfileDraft, "game" | "sensitivity">,
 ) {

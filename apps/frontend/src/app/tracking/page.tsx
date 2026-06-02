@@ -557,18 +557,30 @@ export default function TrackingTest() {
         )}
 
         {phase !== "running" && phase !== "countdown" && (
-          <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/70 px-6">
-            <div className="w-full max-w-xl border border-zinc-800 bg-black p-6 text-center shadow-2xl">
+          <div className="absolute inset-0 z-20 flex items-center justify-center overflow-y-auto bg-black/70 px-6 py-8">
+            <div className="max-h-[calc(100vh-4rem)] w-full max-w-2xl overflow-y-auto border border-zinc-800 bg-black p-6 text-center shadow-2xl">
               <p className="text-sm uppercase text-zinc-500">
                 {phase === "paused" ? "Paused" : "30 seconds"}
               </p>
               <h2 className="mt-3 text-3xl font-semibold text-white">
-                Keep the target in the center crosshair.
+                ด่านนี้เช็ก tracking feel ตอนตามเป้าต่อเนื่อง
               </h2>
               <p className="mt-4 leading-7 text-zinc-400">
-                Black background, one target, no clicking. Move naturally and track as
-                smoothly as possible.
+                พยายามให้เป้าอยู่กลาง crosshair ตลอดเวลา ไม่ต้องคลิก ให้ขยับแบบที่คุณเล่นจริง
+                แล้วสังเกตว่าเมาส์คุมเส้นทางได้เนียนแค่ไหน
               </p>
+              <div className="mt-5 text-left">
+                <p className="text-sm font-semibold text-zinc-200">ระหว่างเล่น ลองจับความรู้สึกว่า:</p>
+                <ul className="mt-3 list-disc space-y-2 pl-5 text-sm leading-6 text-zinc-400">
+                  <li>เมาส์ตามเป้าแล้วหลุดซ้าย/ขวาบ่อยไหม</li>
+                  <li>ตอนเป้าเปลี่ยนทิศ คุณต้องแก้ aim เยอะหรือเปล่า</li>
+                  <li>aim รู้สึกนิ่งหรือสั่นตอนพยายามเกาะเป้า</li>
+                  <li>เมาส์ให้ฟีล control ดี หรือรู้สึกไหลเกินไป</li>
+                </ul>
+                <p className="mt-4 text-sm leading-6 text-zinc-500">
+                  อย่าโฟกัสแค่คะแนน ให้จำฟีลตอน track ด้วย เพราะนี่คือข้อมูลสำคัญตอนแนะนำเมาส์
+                </p>
+              </div>
               <DiagnosticProfileControls onProfileChange={refreshAimSensitivityScale} />
               <button
                 className="mt-6 w-full border border-emerald-400 bg-emerald-400 px-5 py-3 font-semibold text-black transition hover:bg-emerald-300"

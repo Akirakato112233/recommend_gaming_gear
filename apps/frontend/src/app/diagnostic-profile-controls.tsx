@@ -5,6 +5,8 @@ import {
   BASELINE_GAME,
   BASELINE_SENSITIVITY,
   type MouseFitProfileDraft,
+  calculateCentimetersPer360,
+  calculateInchesPer360,
   emptyProfile,
   getAimSensitivityScale,
   getInitialProfile,
@@ -21,6 +23,11 @@ export function DiagnosticProfileControls({
 }: DiagnosticProfileControlsProps) {
   const [profile, setProfile] = useState<MouseFitProfileDraft>(emptyProfile);
   const aimScale = useMemo(() => getAimSensitivityScale(profile), [profile]);
+  const inchesPer360 = useMemo(() => calculateInchesPer360(profile), [profile]);
+  const centimetersPer360 = useMemo(
+    () => calculateCentimetersPer360(profile),
+    [profile],
+  );
 
   useEffect(() => {
     const loadProfileTimer = window.setTimeout(() => {
@@ -30,7 +37,7 @@ export function DiagnosticProfileControls({
     return () => window.clearTimeout(loadProfileTimer);
   }, []);
 
-  function updateProfile(field: "game" | "sensitivity", value: string) {
+  function updateProfile(field: "dpi" | "game" | "sensitivity", value: string) {
     const nextProfile = {
       ...profile,
       [field]: value,
@@ -46,7 +53,7 @@ export function DiagnosticProfileControls({
       <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">
         Aim input
       </p>
-      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+      <div className="mt-3 grid gap-3 sm:grid-cols-3">
         <label className="block">
           <span className="mb-1 block text-xs font-semibold text-zinc-400">Game</span>
           <select
@@ -60,6 +67,20 @@ export function DiagnosticProfileControls({
               </option>
             ))}
           </select>
+        </label>
+
+        <label className="block">
+          <span className="mb-1 block text-xs font-semibold text-zinc-400">DPI</span>
+          <input
+            className="input-control min-h-10 text-sm"
+            inputMode="numeric"
+            min="1"
+            placeholder="800"
+            step="1"
+            type="number"
+            value={profile.dpi}
+            onChange={(event) => updateProfile("dpi", event.target.value)}
+          />
         </label>
 
         <label className="block">
@@ -79,11 +100,25 @@ export function DiagnosticProfileControls({
 
       <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-zinc-800 pt-3 text-xs">
         <span className="font-mono text-zinc-300">
-          {profile.game} sens {profile.sensitivity || "-"}
+          {profile.game} {profile.dpi || "-"} DPI / sens {profile.sensitivity || "-"}
         </span>
         <span className="font-mono text-emerald-300">
           {aimScale.toFixed(2)}x vs {BASELINE_GAME} {BASELINE_SENSITIVITY}
         </span>
+      </div>
+      <div className="mt-2 grid gap-2 text-xs sm:grid-cols-2">
+        <div className="border border-zinc-900 bg-black px-3 py-2">
+          <span className="block uppercase text-zinc-500">In/360</span>
+          <strong className="mt-1 block font-mono text-zinc-100">
+            {inchesPer360 === null ? "-" : inchesPer360.toFixed(2)}
+          </strong>
+        </div>
+        <div className="border border-zinc-900 bg-black px-3 py-2">
+          <span className="block uppercase text-zinc-500">Cm/360</span>
+          <strong className="mt-1 block font-mono text-zinc-100">
+            {centimetersPer360 === null ? "-" : centimetersPer360.toFixed(2)}
+          </strong>
+        </div>
       </div>
     </div>
   );

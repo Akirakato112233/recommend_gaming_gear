@@ -648,18 +648,30 @@ export default function MicroAdjustmentTest() {
         )}
 
         {phase !== "running" && phase !== "countdown" && (
-          <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/70 px-6">
-            <div className="w-full max-w-xl border border-zinc-800 bg-black p-6 text-center shadow-2xl">
+          <div className="absolute inset-0 z-20 flex items-center justify-center overflow-y-auto bg-black/70 px-6 py-8">
+            <div className="max-h-[calc(100vh-4rem)] w-full max-w-2xl overflow-y-auto border border-zinc-800 bg-black p-6 text-center shadow-2xl">
               <p className="text-sm uppercase text-zinc-500">
                 {phase === "paused" ? "Paused" : "30 seconds"}
               </p>
               <h2 className="mt-3 text-3xl font-semibold text-white">
-                Make the smallest clean correction.
+                ด่านนี้เช็ก micro-adjust feel ตอนแก้ aim ระยะสั้น
               </h2>
               <p className="mt-4 leading-7 text-zinc-400">
-                The target starts close to the crosshair. Move precisely, stop on
-                center, then click to confirm the micro-adjustment.
+                เป้าจะเริ่มอยู่ใกล้ crosshair ให้ขยับสั้น ๆ เพื่อเข้ากลางแล้วคลิกยืนยัน
+                ด่านนี้ช่วยดูว่าเมาส์คุมรายละเอียดเล็ก ๆ ได้ดีแค่ไหน
               </p>
+              <div className="mt-5 text-left">
+                <p className="text-sm font-semibold text-zinc-200">ระหว่างเล่น ลองสังเกตว่า:</p>
+                <ul className="mt-3 list-disc space-y-2 pl-5 text-sm leading-6 text-zinc-400">
+                  <li>ขยับนิดเดียวแล้ว crosshair ไปตามที่คิดไหม</li>
+                  <li>คุณแก้เลยเป้าแล้วต้องดึงกลับบ่อยหรือเปล่า</li>
+                  <li>ตอนหยุดกลางเป้า aim ยังนิ่งไหม</li>
+                  <li>จังหวะคลิกทำให้ crosshair ขยับหลุดจากเป้าหรือไม่</li>
+                </ul>
+                <p className="mt-4 text-sm leading-6 text-zinc-500">
+                  คะแนนช่วยบอกภาพรวม แต่ฟีลการคุมระยะสั้นจะบอกว่าเมาส์เข้ากับมือคุณแค่ไหน
+                </p>
+              </div>
               <DiagnosticProfileControls onProfileChange={refreshAimSensitivityScale} />
               <button
                 className="mt-6 w-full border border-emerald-400 bg-emerald-400 px-5 py-3 font-semibold text-black transition hover:bg-emerald-300"
