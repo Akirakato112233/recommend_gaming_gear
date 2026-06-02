@@ -60,6 +60,7 @@ function getProfileCompleteness(profile: MouseFitProfileDraft) {
   const requiredFields = [
     profile.game,
     profile.dpi,
+    profile.sensitivity,
     profile.gripStyle,
     profile.handLengthMm,
     profile.handWidthMm,
@@ -101,6 +102,7 @@ export default function Home() {
   const isProfileValid = useMemo(() => {
     return (
       isPositiveNumber(profile.dpi) &&
+      isPositiveNumber(profile.sensitivity) &&
       isPositiveNumber(profile.handLengthMm) &&
       isPositiveNumber(profile.handWidthMm) &&
       profile.currentMouse.trim() !== "" &&
@@ -240,6 +242,21 @@ export default function Home() {
                   type="number"
                   value={profile.dpi}
                   onChange={(event) => updateProfile("dpi", event.target.value)}
+                />
+              </Field>
+
+              <Field label="Sensitivity">
+                <input
+                  className="input-control"
+                  inputMode="decimal"
+                  min="0.001"
+                  placeholder="0.2"
+                  step="0.001"
+                  type="number"
+                  value={profile.sensitivity}
+                  onChange={(event) =>
+                    updateProfile("sensitivity", event.target.value)
+                  }
                 />
               </Field>
 
@@ -386,6 +403,7 @@ export default function Home() {
               <dl className="mt-5 space-y-4 text-sm">
                 <SummaryRow label="Game" value={profile.game} />
                 <SummaryRow label="DPI" value={profile.dpi || "-"} />
+                <SummaryRow label="Sensitivity" value={profile.sensitivity || "-"} />
                 <SummaryRow label="Grip" value={profile.gripStyle} />
                 <SummaryRow
                   label="Hand"

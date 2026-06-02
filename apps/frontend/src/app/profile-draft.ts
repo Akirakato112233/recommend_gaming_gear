@@ -9,6 +9,7 @@ type SupportedGame = (typeof supportedGames)[number];
 export type MouseFitProfileDraft = {
   game: string;
   dpi: string;
+  sensitivity: string;
   gripStyle: string;
   handLengthMm: string;
   handWidthMm: string;
@@ -26,6 +27,7 @@ export type MouseFitProfileDraft = {
 export const emptyProfile: MouseFitProfileDraft = {
   game: "Valorant",
   dpi: "",
+  sensitivity: "",
   gripStyle: "Claw",
   handLengthMm: "",
   handWidthMm: "",
@@ -58,12 +60,17 @@ function isSupportedGame(game: string): game is SupportedGame {
   return supportedGames.includes(game as SupportedGame);
 }
 
-function normalizeProfileDraft(profile: Partial<MouseFitProfileDraft>): MouseFitProfileDraft {
+type ProfileDraftInput = Partial<MouseFitProfileDraft> & {
+  sen?: string;
+};
+
+function normalizeProfileDraft(profile: ProfileDraftInput): MouseFitProfileDraft {
   const game = profile.game ?? "";
 
   return {
     game: isSupportedGame(game) ? game : emptyProfile.game,
     dpi: profile.dpi ?? emptyProfile.dpi,
+    sensitivity: profile.sensitivity ?? profile.sen ?? emptyProfile.sensitivity,
     gripStyle: profile.gripStyle ?? emptyProfile.gripStyle,
     handLengthMm: profile.handLengthMm ?? emptyProfile.handLengthMm,
     handWidthMm: profile.handWidthMm ?? emptyProfile.handWidthMm,
