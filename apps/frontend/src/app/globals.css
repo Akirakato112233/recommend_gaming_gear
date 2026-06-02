@@ -24,3 +24,25 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+.input-control {
+  min-height: 44px;
+  width: 100%;
+  border: 1px solid #27272a;
+  background: #09090b;
+  padding: 0.75rem 0.875rem;
+  color: #f4f4f5;
+  outline: none;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.input-control::placeholder {
+  color: #71717a;
+}
+
+.input-control:focus {
+  border-color: #34d399;
+  box-shadow: 0 0 0 2px rgba(52, 211, 153, 0.24);
+}

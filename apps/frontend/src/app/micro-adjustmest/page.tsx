@@ -1,115 +1,110 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { DiagnosticProfileControls } from "../diagnostic-profile-controls";
+import { setDiagnosticComplete } from "../diagnostic-progress";
+import {
+  type AngularTarget,
+  type CameraAim,
+  type Point,
+  DEFAULT_CAMERA_AIM,
+  applyMouseMovementToCamera,
+  clamp,
+  getDistanceToCrosshair,
+  getViewportCenter,
+  projectAngularTarget,
+  randomInRange,
+  requestRawPointerLock,
+} from "../fps-camera";
+import { getStoredMouseRadiansPerCount } from "../profile-draft";
 
 const TEST_DURATION_MS = 30_000;
 const COUNTDOWN_SECONDS = 3;
-const TARGET_RADIUS = 22;
+const TARGET_RADIUS = 18;
 const CROSSHAIR_RADIUS = 7;
-const TARGET_PADDING = 72;
 
 type TestPhase = "idle" | "countdown" | "running" | "paused" | "complete";
 
-type Point = {
-  x: number;
-  y: number;
+
+type Target = AngularTarget;
+
+type MicroAdjustmentResult = {
+  hit: number;
+  overCorrection: number;
+  underCorrection: number;
 };
 
-type Target = Point;
-
-type FlickMissResult = {
-  overshoot: number;
-  undershoot: number;
-};
-
-type FlickAttempt = {
+type MicroAttempt = {
   wasHit: boolean;
   timeToClickMs: number;
   missDistancePx: number;
+  startDistancePx: number;
+  finalDistancePx: number;
+  closestDistancePx: number;
 };
 
-type FlickMetrics = {
+type MicroMetrics = {
   hits: number;
   misses: number;
   accuracy: number;
   averageTimeToClickMs: number;
   averageMissDistancePx: number;
-  overshootRate: number;
-  undershootRate: number;
+  averageStartDistancePx: number;
+  overCorrectionRate: number;
+  underCorrectionRate: number;
+  fineControlScore: number;
 };
 
-function clamp(value: number, min: number, max: number) {
-  return Math.min(Math.max(value, min), max);
-}
 
-function distance(a: Point, b: Point) {
-  return Math.hypot(a.x - b.x, a.y - b.y);
-}
+function generateMicroTarget(): Target {
+  const angle = Math.random() * Math.PI * 2;
+  const targetDistance = randomInRange(0.045, 0.145);
 
-function getViewportCenter(width: number, height: number): Point {
   return {
-    x: width / 2,
-    y: height / 2,
+    yaw: Math.cos(angle) * targetDistance,
+    pitch: Math.sin(angle) * targetDistance,
   };
 }
 
-function randomInRange(min: number, max: number) {
-  if (max <= min) {
-    return min;
-  }
-
-  return min + Math.random() * (max - min);
+function getTargetScreenPosition(
+  target: Target,
+  cameraAim: CameraAim,
+  width: number,
+  height: number,
+): Point {
+  return projectAngularTarget(target, cameraAim, width, height);
 }
 
-function generateTarget(width: number, height: number): Target {
-  const center = getViewportCenter(width, height);
-  const maxX = Math.max(width - TARGET_PADDING, TARGET_PADDING);
-  const maxY = Math.max(height - TARGET_PADDING, TARGET_PADDING);
-  let target: Target = center;
 
-  for (let attempt = 0; attempt < 20; attempt++) {
-    target = {
-      x: randomInRange(TARGET_PADDING, maxX),
-      y: randomInRange(TARGET_PADDING, maxY),
-    };
-
-    if (distance(target, center) >= 130) {
-      return target;
-    }
-  }
-
-  return target;
-}
-
-function getTargetScreenPosition(target: Target, aimOffset: Point): Point {
-  return {
-    x: target.x - aimOffset.x,
-    y: target.y - aimOffset.y,
-  };
-}
-
-function getDistanceToCrosshair(target: Target, width: number, height: number) {
-  return distance(target, getViewportCenter(width, height));
-}
-
-function getFlickMissResultFromDistance(
+function getMicroAdjustmentResult(
   finalDistancePx: number,
   closestDistancePx: number,
   targetRadiusPx: number,
-): FlickMissResult {
-  const passedTarget = closestDistancePx <= targetRadiusPx * 1.4;
-  const endedFarAfterPassing = finalDistancePx > closestDistancePx + targetRadiusPx;
-
-  if (passedTarget && endedFarAfterPassing) {
+): MicroAdjustmentResult {
+  if (finalDistancePx <= targetRadiusPx) {
     return {
-      overshoot: 1,
-      undershoot: 0,
+      hit: 1,
+      overCorrection: 0,
+      underCorrection: 0,
+    };
+  }
+
+  const reachedTargetZone = closestDistancePx <= targetRadiusPx * 1.25;
+  const driftedAwayAfterCorrection =
+    finalDistancePx > closestDistancePx + targetRadiusPx * 0.75;
+
+  if (reachedTargetZone && driftedAwayAfterCorrection) {
+    return {
+      hit: 0,
+      overCorrection: 1,
+      underCorrection: 0,
     };
   }
 
   return {
-    overshoot: 0,
-    undershoot: 1,
+    hit: 0,
+    overCorrection: 0,
+    underCorrection: 1,
   };
 }
 
@@ -121,15 +116,32 @@ function average(values: number[]) {
   return values.reduce((sum, value) => sum + value, 0) / values.length;
 }
 
+function calculateFineControlScore(
+  accuracy: number,
+  averageMissDistancePx: number,
+  overCorrectionRate: number,
+  underCorrectionRate: number,
+) {
+  const missPrecision = clamp(1 - averageMissDistancePx / (TARGET_RADIUS * 3), 0, 1);
+  const correctionPenalty = overCorrectionRate * 0.25 + underCorrectionRate * 0.15;
+
+  return clamp(accuracy * 0.7 + missPrecision * 0.3 - correctionPenalty, 0, 1);
+}
+
 function calculateMetrics(
-  attempts: FlickAttempt[],
-  overshoots: number,
-  undershoots: number,
-): FlickMetrics {
+  attempts: MicroAttempt[],
+  overCorrections: number,
+  underCorrections: number,
+): MicroMetrics {
   const hits = attempts.filter((attempt) => attempt.wasHit).length;
   const misses = attempts.length - hits;
   const missAttempts = attempts.filter((attempt) => !attempt.wasHit);
   const accuracy = attempts.length === 0 ? 0 : hits / attempts.length;
+  const averageMissDistancePx = average(
+    missAttempts.map((attempt) => attempt.missDistancePx),
+  );
+  const overCorrectionRate = misses === 0 ? 0 : overCorrections / misses;
+  const underCorrectionRate = misses === 0 ? 0 : underCorrections / misses;
 
   return {
     hits,
@@ -138,11 +150,20 @@ function calculateMetrics(
     averageTimeToClickMs: Math.round(
       average(attempts.map((attempt) => attempt.timeToClickMs)),
     ),
-    averageMissDistancePx: Number(
-      average(missAttempts.map((attempt) => attempt.missDistancePx)).toFixed(1),
+    averageMissDistancePx: Number(averageMissDistancePx.toFixed(1)),
+    averageStartDistancePx: Number(
+      average(attempts.map((attempt) => attempt.startDistancePx)).toFixed(1),
     ),
-    overshootRate: misses === 0 ? 0 : Number((overshoots / misses).toFixed(3)),
-    undershootRate: misses === 0 ? 0 : Number((undershoots / misses).toFixed(3)),
+    overCorrectionRate: Number(overCorrectionRate.toFixed(3)),
+    underCorrectionRate: Number(underCorrectionRate.toFixed(3)),
+    fineControlScore: Number(
+      calculateFineControlScore(
+        accuracy,
+        averageMissDistancePx,
+        overCorrectionRate,
+        underCorrectionRate,
+      ).toFixed(3),
+    ),
   };
 }
 
@@ -150,7 +171,7 @@ function drawScene(
   context: CanvasRenderingContext2D,
   width: number,
   height: number,
-  target: Target | null,
+  target: Point | null,
 ) {
   const crosshair = getViewportCenter(width, height);
 
@@ -161,13 +182,13 @@ function drawScene(
   if (target) {
     context.beginPath();
     context.arc(target.x, target.y, TARGET_RADIUS, 0, Math.PI * 2);
-    context.fillStyle = "#fb3f7f";
-    context.shadowColor = "#fb3f7f";
-    context.shadowBlur = 18;
+    context.fillStyle = "#f9d84a";
+    context.shadowColor = "#f9d84a";
+    context.shadowBlur = 16;
     context.fill();
     context.shadowBlur = 0;
     context.lineWidth = 2;
-    context.strokeStyle = "#ffd1df";
+    context.strokeStyle = "#fff4a5";
     context.stroke();
   }
 
@@ -189,25 +210,27 @@ function drawScene(
   context.stroke();
 }
 
-export default function FlickTest() {
+export default function MicroAdjustmentTest() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const runFrameRef = useRef<(timestamp: number) => void>(() => {});
-  const attemptsRef = useRef<FlickAttempt[]>([]);
-  const aimOffsetRef = useRef<Point>({ x: 0, y: 0 });
+  const attemptsRef = useRef<MicroAttempt[]>([]);
+  const cameraAimRef = useRef<CameraAim>({ ...DEFAULT_CAMERA_AIM });
   const targetRef = useRef<Target | null>(null);
   const targetSpawnedAtRef = useRef(0);
+  const startDistanceRef = useRef(0);
   const closestDistanceRef = useRef(Number.POSITIVE_INFINITY);
   const startTimeRef = useRef(0);
   const elapsedBeforePauseRef = useRef(0);
-  const overshootRef = useRef(0);
-  const undershootRef = useRef(0);
+  const overCorrectionRef = useRef(0);
+  const underCorrectionRef = useRef(0);
+  const mouseRadiansPerCountRef = useRef(0);
   const phaseRef = useRef<TestPhase>("idle");
 
   const [phase, setPhase] = useState<TestPhase>("idle");
   const [countdown, setCountdown] = useState(COUNTDOWN_SECONDS);
   const [timeLeftMs, setTimeLeftMs] = useState(TEST_DURATION_MS);
-  const [metrics, setMetrics] = useState<FlickMetrics | null>(null);
+  const [metrics, setMetrics] = useState<MicroMetrics | null>(null);
   const [isPointerLocked, setIsPointerLocked] = useState(false);
 
   const displayTime = useMemo(() => {
@@ -238,14 +261,24 @@ export default function FlickTest() {
   }, []);
 
   const resetAim = useCallback(() => {
-    aimOffsetRef.current = { x: 0, y: 0 };
+    cameraAimRef.current = { ...DEFAULT_CAMERA_AIM };
   }, []);
 
   const spawnTarget = useCallback((width: number, height: number) => {
     resetAim();
-    targetRef.current = generateTarget(width, height);
+    const target = generateMicroTarget();
+    const screenTarget = getTargetScreenPosition(
+      target,
+      cameraAimRef.current,
+      width,
+      height,
+    );
+    const startDistancePx = getDistanceToCrosshair(screenTarget, width, height);
+
+    targetRef.current = target;
+    startDistanceRef.current = startDistancePx;
     targetSpawnedAtRef.current = performance.now();
-    closestDistanceRef.current = Number.POSITIVE_INFINITY;
+    closestDistanceRef.current = startDistancePx;
   }, [resetAim]);
 
   const resizeCanvas = useCallback(() => {
@@ -275,8 +308,13 @@ export default function FlickTest() {
     setPhase("complete");
     setTimeLeftMs(0);
     setMetrics(
-      calculateMetrics(attemptsRef.current, overshootRef.current, undershootRef.current),
+      calculateMetrics(
+        attemptsRef.current,
+        overCorrectionRef.current,
+        underCorrectionRef.current,
+      ),
     );
+    setDiagnosticComplete("micro");
 
     if (shouldExitPointerLock && document.pointerLockElement === canvasRef.current) {
       document.exitPointerLock();
@@ -314,7 +352,7 @@ export default function FlickTest() {
           : elapsedBeforePauseRef.current;
       const remainingMs = Math.max(TEST_DURATION_MS - elapsedMs, 0);
       const screenTarget = target
-        ? getTargetScreenPosition(target, aimOffsetRef.current)
+        ? getTargetScreenPosition(target, cameraAimRef.current, rect.width, rect.height)
         : null;
 
       if (screenTarget) {
@@ -360,10 +398,12 @@ export default function FlickTest() {
     phaseRef.current = "running";
     setPhase("running");
     setTimeLeftMs(Math.max(TEST_DURATION_MS - elapsedBeforePauseRef.current, 0));
+
     const runStartedAt = performance.now();
     startTimeRef.current = runStartedAt;
     targetSpawnedAtRef.current = runStartedAt;
-    closestDistanceRef.current = Number.POSITIVE_INFINITY;
+    closestDistanceRef.current = startDistanceRef.current;
+
     animationFrameRef.current = requestAnimationFrame((timestamp) => {
       runFrameRef.current(timestamp);
     });
@@ -393,7 +433,7 @@ export default function FlickTest() {
     }
 
     try {
-      await canvas.requestPointerLock();
+      await requestRawPointerLock(canvas);
       beginCountdown();
     } catch {
       setIsPointerLocked(false);
@@ -406,16 +446,25 @@ export default function FlickTest() {
     runFrameRef.current = runFrame;
   }, [runFrame]);
 
+  const refreshAimSensitivityScale = useCallback(() => {
+    mouseRadiansPerCountRef.current = getStoredMouseRadiansPerCount();
+  }, []);
+
+  useEffect(() => {
+    refreshAimSensitivityScale();
+  }, [refreshAimSensitivityScale]);
+
   const startTest = useCallback(async () => {
     const canvas = canvasRef.current;
     if (!canvas) {
       return;
     }
 
+    refreshAimSensitivityScale();
     stopAnimation();
     attemptsRef.current = [];
-    overshootRef.current = 0;
-    undershootRef.current = 0;
+    overCorrectionRef.current = 0;
+    underCorrectionRef.current = 0;
     targetRef.current = null;
     resetAim();
     setMetrics(null);
@@ -424,14 +473,14 @@ export default function FlickTest() {
     elapsedBeforePauseRef.current = 0;
 
     try {
-      await canvas.requestPointerLock();
+      await requestRawPointerLock(canvas);
       beginCountdown();
     } catch {
       setIsPointerLocked(false);
       phaseRef.current = "idle";
       setPhase("idle");
     }
-  }, [beginCountdown, resetAim, stopAnimation]);
+  }, [beginCountdown, refreshAimSensitivityScale, resetAim, stopAnimation]);
 
   const handleShoot = useCallback(() => {
     if (phaseRef.current !== "running") {
@@ -445,26 +494,26 @@ export default function FlickTest() {
     }
 
     const rect = canvas.getBoundingClientRect();
-    const screenTarget = getTargetScreenPosition(target, aimOffsetRef.current);
+    const screenTarget = getTargetScreenPosition(target, cameraAimRef.current, rect.width, rect.height);
     const finalDistancePx = getDistanceToCrosshair(screenTarget, rect.width, rect.height);
-    const wasHit = finalDistancePx <= TARGET_RADIUS;
+    const result = getMicroAdjustmentResult(
+      finalDistancePx,
+      closestDistanceRef.current,
+      TARGET_RADIUS,
+    );
+    const wasHit = result.hit === 1;
     const timeToClickMs = performance.now() - targetSpawnedAtRef.current;
 
-    if (!wasHit) {
-      const missResult = getFlickMissResultFromDistance(
-        finalDistancePx,
-        closestDistanceRef.current,
-        TARGET_RADIUS,
-      );
-
-      overshootRef.current += missResult.overshoot;
-      undershootRef.current += missResult.undershoot;
-    }
+    overCorrectionRef.current += result.overCorrection;
+    underCorrectionRef.current += result.underCorrection;
 
     attemptsRef.current.push({
       wasHit,
       timeToClickMs,
       missDistancePx: wasHit ? 0 : finalDistancePx,
+      startDistancePx: startDistanceRef.current,
+      finalDistancePx,
+      closestDistancePx: closestDistanceRef.current,
     });
 
     spawnTarget(rect.width, rect.height);
@@ -536,14 +585,12 @@ export default function FlickTest() {
         return;
       }
 
-      const rect = canvas.getBoundingClientRect();
-      const maxOffsetX = rect.width * 0.65;
-      const maxOffsetY = rect.height * 0.65;
-
-      aimOffsetRef.current = {
-        x: clamp(aimOffsetRef.current.x + event.movementX, -maxOffsetX, maxOffsetX),
-        y: clamp(aimOffsetRef.current.y + event.movementY, -maxOffsetY, maxOffsetY),
-      };
+      applyMouseMovementToCamera(
+        cameraAimRef.current,
+        event.movementX,
+        event.movementY,
+        mouseRadiansPerCountRef.current,
+      );
     };
 
     document.addEventListener("pointerlockchange", handlePointerLockChange);
@@ -558,13 +605,15 @@ export default function FlickTest() {
   }, [handleShoot, pauseTest, stopAnimation]);
 
   const handlePrimaryAction = useCallback(() => {
+    refreshAimSensitivityScale();
+
     if (phase === "paused") {
       void resumeTest();
       return;
     }
 
     void startTest();
-  }, [phase, resumeTest, startTest]);
+  }, [phase, refreshAimSensitivityScale, resumeTest, startTest]);
 
   return (
     <main className="h-screen overflow-hidden bg-black text-zinc-100">
@@ -573,7 +622,7 @@ export default function FlickTest() {
           <div>
             <p className="font-semibold uppercase text-zinc-500">Mouse Fit Diagnostic</p>
             <h1 className="mt-1 text-xl font-semibold text-white sm:text-2xl">
-              Flick Test
+              Micro-adjustment Test
             </h1>
           </div>
           <div className="text-right">
@@ -587,7 +636,7 @@ export default function FlickTest() {
         <canvas
           ref={canvasRef}
           className="h-full w-full cursor-none bg-black"
-          aria-label="Flick test arena"
+          aria-label="Micro-adjustment test arena"
         />
 
         {phase === "countdown" && (
@@ -600,17 +649,18 @@ export default function FlickTest() {
 
         {phase !== "running" && phase !== "countdown" && (
           <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/70 px-6">
-            <div className="w-full max-w-md border border-zinc-800 bg-black p-6 text-center shadow-2xl">
+            <div className="w-full max-w-xl border border-zinc-800 bg-black p-6 text-center shadow-2xl">
               <p className="text-sm uppercase text-zinc-500">
                 {phase === "paused" ? "Paused" : "30 seconds"}
               </p>
               <h2 className="mt-3 text-3xl font-semibold text-white">
-                Flick the target into the center crosshair.
+                Make the smallest clean correction.
               </h2>
               <p className="mt-4 leading-7 text-zinc-400">
-                Black background, one target, click to confirm your flick. Misses
-                are labeled as overshoot or undershoot.
+                The target starts close to the crosshair. Move precisely, stop on
+                center, then click to confirm the micro-adjustment.
               </p>
+              <DiagnosticProfileControls onProfileChange={refreshAimSensitivityScale} />
               <button
                 className="mt-6 w-full border border-emerald-400 bg-emerald-400 px-5 py-3 font-semibold text-black transition hover:bg-emerald-300"
                 type="button"
@@ -620,7 +670,7 @@ export default function FlickTest() {
                   ? "Continue"
                   : phase === "complete"
                     ? "Run again"
-                    : "Start flick test"}
+                    : "Start micro test"}
               </button>
             </div>
           </div>
@@ -632,8 +682,8 @@ export default function FlickTest() {
             <Metric label="Hits / misses" value={`${metrics.hits}/${metrics.misses}`} />
             <Metric label="Avg click" value={`${metrics.averageTimeToClickMs}ms`} />
             <Metric label="Avg miss" value={`${metrics.averageMissDistancePx}px`} />
-            <Metric label="Overshoot" value={`${Math.round(metrics.overshootRate * 100)}%`} />
-            <Metric label="Undershoot" value={`${Math.round(metrics.undershootRate * 100)}%`} />
+            <Metric label="Over-correct" value={`${Math.round(metrics.overCorrectionRate * 100)}%`} />
+            <Metric label="Fine control" value={`${Math.round(metrics.fineControlScore * 100)}%`} />
           </aside>
         )}
       </section>
