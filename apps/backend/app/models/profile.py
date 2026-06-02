@@ -14,7 +14,6 @@ class MouseFitProfile(Base):
     session_id: Mapped[str] = mapped_column(ForeignKey("user_sessions.id"), index=True)
     game: Mapped[str] = mapped_column(String(32), index=True)
     dpi: Mapped[float] = mapped_column(Float)
-    sensitivity: Mapped[float] = mapped_column(Float)
     grip_style: Mapped[str] = mapped_column(String(32), index=True)
     hand_length_mm: Mapped[float] = mapped_column(Float)
     hand_width_mm: Mapped[float] = mapped_column(Float)

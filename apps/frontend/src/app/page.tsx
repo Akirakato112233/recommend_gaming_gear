@@ -9,7 +9,6 @@ import {
 } from "./diagnostic-progress";
 import {
   type MouseFitProfileDraft,
-  calculateGameAngularSpeed,
   emptyProfile,
   getInitialProfile,
   saveProfileDraft,
@@ -61,7 +60,6 @@ function getProfileCompleteness(profile: MouseFitProfileDraft) {
   const requiredFields = [
     profile.game,
     profile.dpi,
-    profile.sensitivity,
     profile.gripStyle,
     profile.handLengthMm,
     profile.handWidthMm,
@@ -100,11 +98,9 @@ export default function Home() {
   }, [hasLoadedDraft, profile]);
 
   const completeness = useMemo(() => getProfileCompleteness(profile), [profile]);
-  const angularSpeed = useMemo(() => calculateGameAngularSpeed(profile), [profile]);
   const isProfileValid = useMemo(() => {
     return (
       isPositiveNumber(profile.dpi) &&
-      isPositiveNumber(profile.sensitivity) &&
       isPositiveNumber(profile.handLengthMm) &&
       isPositiveNumber(profile.handWidthMm) &&
       profile.currentMouse.trim() !== "" &&
@@ -244,19 +240,6 @@ export default function Home() {
                   type="number"
                   value={profile.dpi}
                   onChange={(event) => updateProfile("dpi", event.target.value)}
-                />
-              </Field>
-
-              <Field label="Sensitivity">
-                <input
-                  className="input-control"
-                  inputMode="decimal"
-                  min="0"
-                  placeholder="0.45"
-                  step="0.001"
-                  type="number"
-                  value={profile.sensitivity}
-                  onChange={(event) => updateProfile("sensitivity", event.target.value)}
                 />
               </Field>
 
@@ -402,14 +385,7 @@ export default function Home() {
               </p>
               <dl className="mt-5 space-y-4 text-sm">
                 <SummaryRow label="Game" value={profile.game} />
-                <SummaryRow
-                  label="DPI / Sens"
-                  value={`${profile.dpi || "-"} / ${profile.sensitivity || "-"}`}
-                />
-                <SummaryRow
-                  label="Game scale"
-                  value={angularSpeed === null ? "-" : `${angularSpeed} angular`}
-                />
+                <SummaryRow label="DPI" value={profile.dpi || "-"} />
                 <SummaryRow label="Grip" value={profile.gripStyle} />
                 <SummaryRow
                   label="Hand"

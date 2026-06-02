@@ -54,7 +54,6 @@ curl -X POST http://localhost:3001/api/profile/validate \
   -d '{
     "game": "valorant",
     "dpi": 800,
-    "sensitivity": 0.32,
     "grip_style": "claw",
     "hand_length_mm": 185,
     "hand_width_mm": 95.5,
@@ -82,7 +81,6 @@ curl -X POST http://localhost:3001/api/recommendations/complete \
     "profile": {
       "game": "valorant",
       "dpi": 800,
-      "sensitivity": 0.32,
       "grip_style": "claw",
       "hand_length_mm": 185,
       "hand_width_mm": 95.5,
@@ -120,7 +118,7 @@ curl http://localhost:3001/api/profiles/<profile-id>
 The MVP stores profile data in Postgres with SQLAlchemy:
 
 - `user_sessions` - anonymous user sessions
-- `mouse_fit_profiles` - game, DPI, sensitivity, grip, hand size, current mouse feedback, and preferences
+- `mouse_fit_profiles` - game, DPI, grip, hand size, current mouse feedback, and preferences
 - `diagnostic_results` - placeholder table for future aim-test metrics and trait summaries
 
 Profile data is saved only after `POST /api/recommendations/complete` succeeds.

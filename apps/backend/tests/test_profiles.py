@@ -39,7 +39,6 @@ def test_profile_validate_does_not_persist_profile() -> None:
     payload = {
         "game": "valorant",
         "dpi": 800,
-        "sensitivity": 0.32,
         "grip_style": "claw",
         "hand_length_mm": 185,
         "hand_width_mm": 95.5,
@@ -70,7 +69,6 @@ def test_complete_recommendation_persists_and_reads_latest_profile() -> None:
         "profile": {
             "game": "valorant",
             "dpi": 800,
-            "sensitivity": 0.32,
             "grip_style": "claw",
             "hand_length_mm": 185,
             "hand_width_mm": 95.5,
@@ -104,7 +102,6 @@ def test_reads_profile_by_id() -> None:
     payload = {
         "game": "apex",
         "dpi": 1600,
-        "sensitivity": 1.1,
         "grip_style": "fingertip",
         "hand_length_mm": 178,
         "hand_width_mm": 88,
@@ -131,7 +128,6 @@ def test_rejects_unsupported_game() -> None:
         json={
             "game": "fortnite",
             "dpi": 800,
-            "sensitivity": 1.0,
             "grip_style": "palm",
             "hand_length_mm": 180,
             "hand_width_mm": 90,
@@ -148,7 +144,6 @@ def test_rejects_non_positive_hand_size() -> None:
         json={
             "game": "cs2",
             "dpi": 800,
-            "sensitivity": 1.0,
             "grip_style": "palm",
             "hand_length_mm": 0,
             "hand_width_mm": 90,

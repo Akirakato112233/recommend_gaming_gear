@@ -11,8 +11,6 @@ import {
   applyMouseMovementToCamera,
   clamp,
   distance,
-  getDistanceToCrosshair,
-  getViewportCenter,
   projectAngularTarget,
   randomInRange,
   requestRawPointerLock,
@@ -22,7 +20,8 @@ import { getStoredMouseRadiansPerCount } from "../profile-draft";
 const TEST_DURATION_MS = 30_000;
 const COUNTDOWN_SECONDS = 3;
 const TARGET_RADIUS = 22;
-const CROSSHAIR_RADIUS = 7;
+const CURSOR_RADIUS = 5;
+const TRAIL_LIMIT = 90;
 
 type TestPhase = "idle" | "countdown" | "running" | "paused" | "complete";
 
@@ -75,6 +74,18 @@ function getTargetScreenPosition(
   height: number,
 ): Point {
   return projectAngularTarget(target, cameraAim, width, height);
+}
+
+function getCursorScreenPosition(cameraAim: CameraAim, width: number, height: number): Point {
+  return projectAngularTarget(cameraAim, DEFAULT_CAMERA_AIM, width, height);
+}
+
+function pushTrailPoint(trail: Point[], point: Point) {
+  trail.push(point);
+
+  if (trail.length > TRAIL_LIMIT) {
+    trail.shift();
+  }
 }
 
 
@@ -136,43 +147,61 @@ function drawScene(
   context: CanvasRenderingContext2D,
   width: number,
   height: number,
-  target: Point | null,
+  finish: Point | null,
+  cursor: Point,
+  trail: Point[],
 ) {
-  const crosshair = getViewportCenter(width, height);
-
   context.clearRect(0, 0, width, height);
   context.fillStyle = "#000000";
   context.fillRect(0, 0, width, height);
 
-  if (target) {
+  const start = {
+    x: width / 2,
+    y: height / 2,
+  };
+
+  context.beginPath();
+  context.arc(start.x, start.y, 8, 0, Math.PI * 2);
+  context.strokeStyle = "rgba(53, 245, 208, 0.42)";
+  context.lineWidth = 2;
+  context.stroke();
+
+  if (finish) {
     context.beginPath();
-    context.arc(target.x, target.y, TARGET_RADIUS, 0, Math.PI * 2);
-    context.fillStyle = "#fb3f7f";
-    context.shadowColor = "#fb3f7f";
-    context.shadowBlur = 18;
-    context.fill();
-    context.shadowBlur = 0;
+    context.arc(finish.x, finish.y, TARGET_RADIUS, 0, Math.PI * 2);
+    context.strokeStyle = "#fbbf24";
     context.lineWidth = 2;
-    context.strokeStyle = "#ffd1df";
+    context.stroke();
+
+    context.beginPath();
+    context.moveTo(start.x, start.y);
+    context.lineTo(finish.x, finish.y);
+    context.strokeStyle = "rgba(251, 191, 36, 0.18)";
+    context.lineWidth = 1;
+    context.stroke();
+  }
+
+  if (trail.length > 1) {
+    context.beginPath();
+    trail.forEach((point, index) => {
+      if (index === 0) {
+        context.moveTo(point.x, point.y);
+      } else {
+        context.lineTo(point.x, point.y);
+      }
+    });
+    context.strokeStyle = "rgba(53, 245, 208, 0.76)";
+    context.lineWidth = 2;
     context.stroke();
   }
 
   context.beginPath();
-  context.arc(crosshair.x, crosshair.y, CROSSHAIR_RADIUS, 0, Math.PI * 2);
-  context.strokeStyle = "#35f5d0";
-  context.lineWidth = 2;
-  context.stroke();
-
-  context.beginPath();
-  context.moveTo(crosshair.x - 14, crosshair.y);
-  context.lineTo(crosshair.x - 4, crosshair.y);
-  context.moveTo(crosshair.x + 4, crosshair.y);
-  context.lineTo(crosshair.x + 14, crosshair.y);
-  context.moveTo(crosshair.x, crosshair.y - 14);
-  context.lineTo(crosshair.x, crosshair.y - 4);
-  context.moveTo(crosshair.x, crosshair.y + 4);
-  context.lineTo(crosshair.x, crosshair.y + 14);
-  context.stroke();
+  context.arc(cursor.x, cursor.y, CURSOR_RADIUS, 0, Math.PI * 2);
+  context.fillStyle = "#35f5d0";
+  context.shadowColor = "#35f5d0";
+  context.shadowBlur = 12;
+  context.fill();
+  context.shadowBlur = 0;
 }
 
 export default function FlickTest() {
@@ -181,6 +210,7 @@ export default function FlickTest() {
   const runFrameRef = useRef<(timestamp: number) => void>(() => {});
   const attemptsRef = useRef<FlickAttempt[]>([]);
   const cameraAimRef = useRef<CameraAim>({ ...DEFAULT_CAMERA_AIM });
+  const trailRef = useRef<Point[]>([]);
   const targetRef = useRef<Target | null>(null);
   const targetSpawnedAtRef = useRef(0);
   const closestDistanceRef = useRef(Number.POSITIVE_INFINITY);
@@ -230,6 +260,7 @@ export default function FlickTest() {
 
   const spawnTarget = useCallback(() => {
     resetAim();
+    trailRef.current = [];
     targetRef.current = generateTarget();
     targetSpawnedAtRef.current = performance.now();
     closestDistanceRef.current = Number.POSITIVE_INFINITY;
@@ -252,7 +283,8 @@ export default function FlickTest() {
     }
 
     context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
-    drawScene(context, rect.width, rect.height, null);
+    const cursor = getCursorScreenPosition(cameraAimRef.current, rect.width, rect.height);
+    drawScene(context, rect.width, rect.height, null, cursor, trailRef.current);
   }, []);
 
   const finishTest = useCallback((shouldExitPointerLock = true) => {
@@ -301,16 +333,14 @@ export default function FlickTest() {
           ? elapsedBeforePauseRef.current + timestamp - startTimeRef.current
           : elapsedBeforePauseRef.current;
       const remainingMs = Math.max(TEST_DURATION_MS - elapsedMs, 0);
-      const screenTarget = target
-        ? getTargetScreenPosition(target, cameraAimRef.current, rect.width, rect.height)
+      const finish = target
+        ? getTargetScreenPosition(target, DEFAULT_CAMERA_AIM, rect.width, rect.height)
         : null;
+      const cursor = getCursorScreenPosition(cameraAimRef.current, rect.width, rect.height);
+      pushTrailPoint(trailRef.current, cursor);
 
-      if (screenTarget) {
-        const currentDistance = getDistanceToCrosshair(
-          screenTarget,
-          rect.width,
-          rect.height,
-        );
+      if (finish) {
+        const currentDistance = distance(cursor, finish);
 
         closestDistanceRef.current = Math.min(
           closestDistanceRef.current,
@@ -319,7 +349,7 @@ export default function FlickTest() {
       }
 
       setTimeLeftMs(remainingMs);
-      drawScene(context, rect.width, rect.height, screenTarget);
+      drawScene(context, rect.width, rect.height, finish, cursor, trailRef.current);
 
       if (phaseRef.current === "running" && elapsedMs >= TEST_DURATION_MS) {
         finishTest();
@@ -392,13 +422,13 @@ export default function FlickTest() {
     runFrameRef.current = runFrame;
   }, [runFrame]);
 
-  const refreshAimSensitivityScale = useCallback(() => {
+  const refreshMouseDpiScale = useCallback(() => {
     mouseRadiansPerCountRef.current = getStoredMouseRadiansPerCount();
   }, []);
 
   useEffect(() => {
-    refreshAimSensitivityScale();
-  }, [refreshAimSensitivityScale]);
+    refreshMouseDpiScale();
+  }, [refreshMouseDpiScale]);
 
   const startTest = useCallback(async () => {
     const canvas = canvasRef.current;
@@ -406,11 +436,12 @@ export default function FlickTest() {
       return;
     }
 
-    refreshAimSensitivityScale();
+    refreshMouseDpiScale();
     stopAnimation();
     attemptsRef.current = [];
     overshootRef.current = 0;
     undershootRef.current = 0;
+    trailRef.current = [];
     targetRef.current = null;
     resetAim();
     setMetrics(null);
@@ -426,7 +457,7 @@ export default function FlickTest() {
       phaseRef.current = "idle";
       setPhase("idle");
     }
-  }, [beginCountdown, refreshAimSensitivityScale, resetAim, stopAnimation]);
+  }, [beginCountdown, refreshMouseDpiScale, resetAim, stopAnimation]);
 
   const handleShoot = useCallback(() => {
     if (phaseRef.current !== "running") {
@@ -440,8 +471,9 @@ export default function FlickTest() {
     }
 
     const rect = canvas.getBoundingClientRect();
-    const screenTarget = getTargetScreenPosition(target, cameraAimRef.current, rect.width, rect.height);
-    const finalDistancePx = getDistanceToCrosshair(screenTarget, rect.width, rect.height);
+    const finish = getTargetScreenPosition(target, DEFAULT_CAMERA_AIM, rect.width, rect.height);
+    const cursor = getCursorScreenPosition(cameraAimRef.current, rect.width, rect.height);
+    const finalDistancePx = distance(cursor, finish);
     const wasHit = finalDistancePx <= TARGET_RADIUS;
     const timeToClickMs = performance.now() - targetSpawnedAtRef.current;
 
@@ -551,7 +583,7 @@ export default function FlickTest() {
   }, [handleShoot, pauseTest, stopAnimation]);
 
   const handlePrimaryAction = useCallback(() => {
-    refreshAimSensitivityScale();
+    refreshMouseDpiScale();
 
     if (phase === "paused") {
       void resumeTest();
@@ -559,7 +591,7 @@ export default function FlickTest() {
     }
 
     void startTest();
-  }, [phase, refreshAimSensitivityScale, resumeTest, startTest]);
+  }, [phase, refreshMouseDpiScale, resumeTest, startTest]);
 
   return (
     <main className="h-screen overflow-hidden bg-black text-zinc-100">
@@ -600,25 +632,25 @@ export default function FlickTest() {
                 {phase === "paused" ? "Paused" : "30 seconds"}
               </p>
               <h2 className="mt-3 text-3xl font-semibold text-white">
-                ด่านนี้เช็ก flick feel ว่าเมาส์หยุดตรงใจไหม
+                ด่านนี้เช็ก flick feel จากการลากไปหยุดที่ finish zone
               </h2>
               <p className="mt-4 leading-7 text-zinc-400">
-                flick ให้เป้าเข้ากลาง crosshair แล้วคลิกยืนยัน ด่านนี้จะช่วยให้คุณเข้าใจว่าเมาส์
-                “ให้ฟีล” แบบไหนเวลายิงเป้าเร็ว ๆ
+                ลากจากจุดเริ่มไปยัง finish zone แล้วคลิกยืนยัน ด่านนี้ช่วยให้คุณเข้าใจว่าเมาส์
+                “ให้ฟีล” แบบไหนเวลาต้องขยับเร็วแล้วหยุดให้ตรง
               </p>
               <div className="mt-5 text-left">
                 <p className="text-sm font-semibold text-zinc-200">ระหว่างเล่น ลองสังเกตว่า:</p>
                 <ul className="mt-3 list-disc space-y-2 pl-5 text-sm leading-6 text-zinc-400">
-                  <li>เมาส์หยุดตรงที่คุณต้องการไหม</li>
-                  <li>คุณ flick เลยเป้าบ่อยหรือหยุดก่อนเป้าบ่อย</li>
-                  <li>aim รู้สึกนิ่งแค่ไหนหลังหยุด flick</li>
-                  <li>การแก้ aim เล็ก ๆ หลัง flick ทำได้ง่ายไหม</li>
+                  <li>เมาส์หยุดตรง finish zone ตามที่คุณคิดไหม</li>
+                  <li>คุณลากเลยจุดบ่อยหรือหยุดก่อนจุดบ่อย</li>
+                  <li>มือรู้สึกนิ่งแค่ไหนหลังหยุด flick</li>
+                  <li>การแก้ระยะเล็ก ๆ หลัง flick ทำได้ง่ายไหม</li>
                 </ul>
                 <p className="mt-4 text-sm leading-6 text-zinc-500">
-                  อย่าโฟกัสแค่คะแนน ให้โฟกัสที่ความรู้สึกตอนเล่นด้วย โดยเฉพาะจังหวะหยุดเป้า
+                  อย่าโฟกัสแค่คะแนน ให้โฟกัสที่ความรู้สึกตอนเล่นด้วย โดยเฉพาะจังหวะหยุดจุด
                 </p>
               </div>
-              <DiagnosticProfileControls onProfileChange={refreshAimSensitivityScale} />
+              <DiagnosticProfileControls onProfileChange={refreshMouseDpiScale} />
               <button
                 className="mt-6 w-full border border-emerald-400 bg-emerald-400 px-5 py-3 font-semibold text-black transition hover:bg-emerald-300"
                 type="button"

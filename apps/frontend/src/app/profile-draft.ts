@@ -1,10 +1,6 @@
 export const PROFILE_DRAFT_STORAGE_KEY = "mouse-fit-profile-draft";
-export const BASELINE_EDPI = 400;
-export const BASELINE_SENSITIVITY = 0.5;
-export const BASELINE_GAME = "Valorant";
-export const BASELINE_GAME_YAW = 0.07;
-export const BASELINE_ANGULAR_SPEED =
-  BASELINE_SENSITIVITY * BASELINE_GAME_YAW;
+export const BASELINE_DPI = 800;
+export const BASELINE_MOUSE_DEGREES_PER_COUNT = 0.035;
 
 export const supportedGames = ["CS2", "Valorant", "OW2", "Apex"] as const;
 
@@ -13,7 +9,6 @@ type SupportedGame = (typeof supportedGames)[number];
 export type MouseFitProfileDraft = {
   game: string;
   dpi: string;
-  sensitivity: string;
   gripStyle: string;
   handLengthMm: string;
   handWidthMm: string;
@@ -31,7 +26,6 @@ export type MouseFitProfileDraft = {
 export const emptyProfile: MouseFitProfileDraft = {
   game: "Valorant",
   dpi: "",
-  sensitivity: "",
   gripStyle: "Claw",
   handLengthMm: "",
   handWidthMm: "",
@@ -64,99 +58,36 @@ function isSupportedGame(game: string): game is SupportedGame {
   return supportedGames.includes(game as SupportedGame);
 }
 
-function getGameYaw(game: string) {
-  if (!isSupportedGame(game)) {
-    return null;
-  }
+function normalizeProfileDraft(profile: Partial<MouseFitProfileDraft>): MouseFitProfileDraft {
+  const game = profile.game ?? "";
 
-  const gameYaw: Record<SupportedGame, number> = {
-    CS2: 0.022,
-    Valorant: BASELINE_GAME_YAW,
-    OW2: 0.0066,
-    Apex: 0.022,
-  };
-
-  return gameYaw[game];
-}
-
-function normalizeProfileDraft(profile: MouseFitProfileDraft): MouseFitProfileDraft {
   return {
-    ...profile,
-    game: isSupportedGame(profile.game) ? profile.game : emptyProfile.game,
+    game: isSupportedGame(game) ? game : emptyProfile.game,
+    dpi: profile.dpi ?? emptyProfile.dpi,
+    gripStyle: profile.gripStyle ?? emptyProfile.gripStyle,
+    handLengthMm: profile.handLengthMm ?? emptyProfile.handLengthMm,
+    handWidthMm: profile.handWidthMm ?? emptyProfile.handWidthMm,
+    currentMouse: profile.currentMouse ?? emptyProfile.currentMouse,
+    likedFeatures: Array.isArray(profile.likedFeatures) ? profile.likedFeatures : [],
+    dislikedFeatures: Array.isArray(profile.dislikedFeatures) ? profile.dislikedFeatures : [],
+    likedFeaturesComment: profile.likedFeaturesComment ?? emptyProfile.likedFeaturesComment,
+    dislikedFeaturesComment:
+      profile.dislikedFeaturesComment ?? emptyProfile.dislikedFeaturesComment,
+    primaryPreference: profile.primaryPreference ?? emptyProfile.primaryPreference,
+    secondaryPreference: profile.secondaryPreference ?? emptyProfile.secondaryPreference,
+    budgetMinThb: profile.budgetMinThb ?? emptyProfile.budgetMinThb,
+    budgetMaxThb: profile.budgetMaxThb ?? emptyProfile.budgetMaxThb,
   };
 }
 
-export function calculateEdpi(profile: Pick<MouseFitProfileDraft, "dpi" | "sensitivity">) {
+export function calculateDpiScale(profile: Pick<MouseFitProfileDraft, "dpi">) {
   const dpi = toPositiveNumber(profile.dpi);
-  const sensitivity = toPositiveNumber(profile.sensitivity);
 
-  if (dpi === null || sensitivity === null) {
-    return null;
-  }
-
-  return Math.round(dpi * sensitivity * 100) / 100;
-}
-
-export function calculateGameAngularSpeed(
-  profile: Pick<MouseFitProfileDraft, "game" | "sensitivity">,
-) {
-  const degreesPerCount = calculateGameDegreesPerMouseCount(profile);
-
-  if (degreesPerCount === null) {
-    return null;
-  }
-
-  return Math.round(degreesPerCount * 1000) / 1000;
-}
-
-export function calculateInchesPer360(
-  profile: Pick<MouseFitProfileDraft, "dpi" | "game" | "sensitivity">,
-) {
-  const dpi = toPositiveNumber(profile.dpi);
-  const degreesPerCount = calculateGameDegreesPerMouseCount(profile);
-
-  if (dpi === null || degreesPerCount === null) {
-    return null;
-  }
-
-  return 360 / (dpi * degreesPerCount);
-}
-
-export function calculateCentimetersPer360(
-  profile: Pick<MouseFitProfileDraft, "dpi" | "game" | "sensitivity">,
-) {
-  const inchesPer360 = calculateInchesPer360(profile);
-
-  if (inchesPer360 === null) {
-    return null;
-  }
-
-  return inchesPer360 * 2.54;
-}
-
-function calculateGameDegreesPerMouseCount(
-  profile: Pick<MouseFitProfileDraft, "game" | "sensitivity">,
-) {
-  const sensitivity = toPositiveNumber(profile.sensitivity);
-  const gameYaw = getGameYaw(profile.game);
-
-  if (sensitivity === null || gameYaw === null) {
-    return null;
-  }
-
-  return sensitivity * gameYaw;
-}
-
-export function getAimSensitivityScale(
-  profile: Pick<MouseFitProfileDraft, "game" | "sensitivity">,
-) {
-  const angularSpeed = calculateGameAngularSpeed(profile);
-
-  if (angularSpeed === null) {
+  if (dpi === null) {
     return 1;
   }
 
-  return clamp(angularSpeed / BASELINE_ANGULAR_SPEED, 0.45, 2.25);
+  return clamp(dpi / BASELINE_DPI, 0.35, 3);
 }
 
 export function getInitialProfile(): MouseFitProfileDraft {
@@ -188,16 +119,9 @@ export function saveProfileDraft(profile: MouseFitProfileDraft) {
   );
 }
 
-export function getStoredAimSensitivityScale() {
-  return getAimSensitivityScale(getInitialProfile());
-}
-
 export function getStoredMouseRadiansPerCount() {
-  const degreesPerCount = calculateGameDegreesPerMouseCount(getInitialProfile());
-
-  if (degreesPerCount === null) {
-    return BASELINE_ANGULAR_SPEED * (Math.PI / 180);
-  }
+  const dpiScale = calculateDpiScale(getInitialProfile());
+  const degreesPerCount = BASELINE_MOUSE_DEGREES_PER_COUNT * dpiScale;
 
   return degreesPerCount * (Math.PI / 180);
 }

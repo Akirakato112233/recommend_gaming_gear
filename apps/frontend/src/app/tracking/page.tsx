@@ -11,8 +11,6 @@ import {
   applyMouseMovementToCamera,
   clamp,
   distance,
-  getCameraScreenOffset,
-  getViewportCenter,
   projectAngularTarget,
   requestRawPointerLock,
 } from "../fps-camera";
@@ -21,15 +19,16 @@ import { getStoredMouseRadiansPerCount } from "../profile-draft";
 const TEST_DURATION_MS = 30_000;
 const COUNTDOWN_SECONDS = 3;
 const TARGET_RADIUS = 18;
-const CROSSHAIR_RADIUS = 7;
+const CURSOR_RADIUS = 5;
+const TRAIL_LIMIT = 180;
 
 type TestPhase = "idle" | "countdown" | "running" | "paused" | "complete";
 
 
 type FrameSample = {
   elapsedMs: number;
-  target: Point;
-  crosshair: Point;
+  guide: Point;
+  cursor: Point;
   aimOffset: Point;
   distance: number;
 };
@@ -60,6 +59,18 @@ function getTargetScreenPosition(
   cameraAim: CameraAim,
 ): Point {
   return projectAngularTarget(getTargetWorldPosition(elapsedMs), cameraAim, width, height);
+}
+
+function getCursorScreenPosition(cameraAim: CameraAim, width: number, height: number): Point {
+  return projectAngularTarget(cameraAim, DEFAULT_CAMERA_AIM, width, height);
+}
+
+function pushTrailPoint(trail: Point[], point: Point) {
+  trail.push(point);
+
+  if (trail.length > TRAIL_LIMIT) {
+    trail.shift();
+  }
 }
 
 function calculateMetrics(samples: FrameSample[]): TrackingMetrics {
@@ -110,11 +121,11 @@ function calculateMetrics(samples: FrameSample[]): TrackingMetrics {
   const shakiness = clamp(nearTargetSpeed / 900, 0, 1);
 
   let correctionCount = 0;
-  let previousErrorX = samples[0].target.x - samples[0].crosshair.x;
-  let previousErrorY = samples[0].target.y - samples[0].crosshair.y;
+  let previousErrorX = samples[0].guide.x - samples[0].cursor.x;
+  let previousErrorY = samples[0].guide.y - samples[0].cursor.y;
   for (const sample of samples.slice(1)) {
-    const errorX = sample.target.x - sample.crosshair.x;
-    const errorY = sample.target.y - sample.crosshair.y;
+    const errorX = sample.guide.x - sample.cursor.x;
+    const errorY = sample.guide.y - sample.cursor.y;
     if (Math.sign(errorX) !== Math.sign(previousErrorX) && Math.abs(errorX) > 4) {
       correctionCount += 1;
     }
@@ -144,41 +155,61 @@ function drawScene(
   context: CanvasRenderingContext2D,
   width: number,
   height: number,
-  target: Point,
+  guide: Point,
+  cursor: Point,
+  trail: Point[],
+  elapsedMs: number,
 ) {
-  const crosshair = getViewportCenter(width, height);
-
   context.clearRect(0, 0, width, height);
   context.fillStyle = "#000000";
   context.fillRect(0, 0, width, height);
 
   context.beginPath();
-  context.arc(target.x, target.y, TARGET_RADIUS, 0, Math.PI * 2);
-  context.fillStyle = "#fb3f7f";
-  context.shadowColor = "#fb3f7f";
-  context.shadowBlur = 18;
+  for (let index = 0; index <= 90; index += 1) {
+    const point = getTargetScreenPosition(
+      elapsedMs - 1800 + index * 40,
+      width,
+      height,
+      DEFAULT_CAMERA_AIM,
+    );
+
+    if (index === 0) {
+      context.moveTo(point.x, point.y);
+    } else {
+      context.lineTo(point.x, point.y);
+    }
+  }
+  context.strokeStyle = "rgba(52, 211, 153, 0.28)";
+  context.lineWidth = 2;
+  context.stroke();
+
+  context.beginPath();
+  context.arc(guide.x, guide.y, TARGET_RADIUS, 0, Math.PI * 2);
+  context.strokeStyle = "#fbbf24";
+  context.lineWidth = 2;
+  context.stroke();
+
+  if (trail.length > 1) {
+    context.beginPath();
+    trail.forEach((point, index) => {
+      if (index === 0) {
+        context.moveTo(point.x, point.y);
+      } else {
+        context.lineTo(point.x, point.y);
+      }
+    });
+    context.strokeStyle = "rgba(53, 245, 208, 0.76)";
+    context.lineWidth = 2;
+    context.stroke();
+  }
+
+  context.beginPath();
+  context.arc(cursor.x, cursor.y, CURSOR_RADIUS, 0, Math.PI * 2);
+  context.fillStyle = "#35f5d0";
+  context.shadowColor = "#35f5d0";
+  context.shadowBlur = 12;
   context.fill();
   context.shadowBlur = 0;
-  context.lineWidth = 2;
-  context.strokeStyle = "#ffd1df";
-  context.stroke();
-
-  context.beginPath();
-  context.arc(crosshair.x, crosshair.y, CROSSHAIR_RADIUS, 0, Math.PI * 2);
-  context.strokeStyle = "#35f5d0";
-  context.lineWidth = 2;
-  context.stroke();
-
-  context.beginPath();
-  context.moveTo(crosshair.x - 14, crosshair.y);
-  context.lineTo(crosshair.x - 4, crosshair.y);
-  context.moveTo(crosshair.x + 4, crosshair.y);
-  context.lineTo(crosshair.x + 14, crosshair.y);
-  context.moveTo(crosshair.x, crosshair.y - 14);
-  context.lineTo(crosshair.x, crosshair.y - 4);
-  context.moveTo(crosshair.x, crosshair.y + 4);
-  context.lineTo(crosshair.x, crosshair.y + 14);
-  context.stroke();
 }
 
 export default function TrackingTest() {
@@ -188,6 +219,7 @@ export default function TrackingTest() {
   const runCountdownFrameRef = useRef<(timestamp: number) => void>(() => {});
   const samplesRef = useRef<FrameSample[]>([]);
   const cameraAimRef = useRef<CameraAim>({ ...DEFAULT_CAMERA_AIM });
+  const trailRef = useRef<Point[]>([]);
   const startTimeRef = useRef<number>(0);
   const targetStartTimeRef = useRef<number>(0);
   const elapsedBeforePauseRef = useRef<number>(0);
@@ -243,11 +275,16 @@ export default function TrackingTest() {
     const context = canvas.getContext("2d");
     if (context) {
       context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+      const guide = getTargetScreenPosition(0, rect.width, rect.height, DEFAULT_CAMERA_AIM);
+      const cursor = getCursorScreenPosition(cameraAimRef.current, rect.width, rect.height);
       drawScene(
         context,
         rect.width,
         rect.height,
-        projectAngularTarget({ yaw: 0, pitch: 0 }, cameraAimRef.current, rect.width, rect.height),
+        guide,
+        cursor,
+        trailRef.current,
+        0,
       );
     }
   }, []);
@@ -289,14 +326,17 @@ export default function TrackingTest() {
     }
 
     const rect = canvas.getBoundingClientRect();
-    const target = getTargetScreenPosition(
-      timestamp - targetStartTimeRef.current,
+    const elapsedMs = timestamp - targetStartTimeRef.current;
+    const guide = getTargetScreenPosition(
+      elapsedMs,
       rect.width,
       rect.height,
-      cameraAimRef.current,
+      DEFAULT_CAMERA_AIM,
     );
+    const cursor = getCursorScreenPosition(cameraAimRef.current, rect.width, rect.height);
+    pushTrailPoint(trailRef.current, cursor);
 
-    drawScene(context, rect.width, rect.height, target);
+    drawScene(context, rect.width, rect.height, guide, cursor, trailRef.current, elapsedMs);
 
     animationFrameRef.current = requestAnimationFrame((nextTimestamp) => {
       runCountdownFrameRef.current(nextTimestamp);
@@ -305,6 +345,7 @@ export default function TrackingTest() {
 
   const beginCountdown = useCallback(() => {
     stopAnimation();
+    trailRef.current = [];
     setCountdown(COUNTDOWN_SECONDS);
     phaseRef.current = "countdown";
     setPhase("countdown");
@@ -324,30 +365,26 @@ export default function TrackingTest() {
       const rect = canvas.getBoundingClientRect();
       const elapsedMs = elapsedBeforePauseRef.current + timestamp - startTimeRef.current;
       const remainingMs = Math.max(TEST_DURATION_MS - elapsedMs, 0);
-      const target = getTargetScreenPosition(
+      const guide = getTargetScreenPosition(
         timestamp - targetStartTimeRef.current,
         rect.width,
         rect.height,
-        cameraAimRef.current,
+        DEFAULT_CAMERA_AIM,
       );
-      const crosshair = getViewportCenter(rect.width, rect.height);
-      const currentDistance = distance(target, crosshair);
-      const cameraOffset = getCameraScreenOffset(
-        cameraAimRef.current,
-        rect.width,
-        rect.height,
-      );
+      const cursor = getCursorScreenPosition(cameraAimRef.current, rect.width, rect.height);
+      const currentDistance = distance(guide, cursor);
+      pushTrailPoint(trailRef.current, cursor);
 
       samplesRef.current.push({
         elapsedMs,
-        target,
-        crosshair,
-        aimOffset: cameraOffset,
+        guide,
+        cursor,
+        aimOffset: cursor,
         distance: currentDistance,
       });
 
       setTimeLeftMs(remainingMs);
-      drawScene(context, rect.width, rect.height, target);
+      drawScene(context, rect.width, rect.height, guide, cursor, trailRef.current, elapsedMs);
 
       if (elapsedMs >= TEST_DURATION_MS) {
         finishTest();
@@ -396,13 +433,13 @@ export default function TrackingTest() {
     runCountdownFrameRef.current = runCountdownFrame;
   }, [runCountdownFrame]);
 
-  const refreshAimSensitivityScale = useCallback(() => {
+  const refreshMouseDpiScale = useCallback(() => {
     mouseRadiansPerCountRef.current = getStoredMouseRadiansPerCount();
   }, []);
 
   useEffect(() => {
-    refreshAimSensitivityScale();
-  }, [refreshAimSensitivityScale]);
+    refreshMouseDpiScale();
+  }, [refreshMouseDpiScale]);
 
   const startTest = useCallback(async () => {
     const canvas = canvasRef.current;
@@ -410,9 +447,10 @@ export default function TrackingTest() {
       return;
     }
 
-    refreshAimSensitivityScale();
+    refreshMouseDpiScale();
     stopAnimation();
     samplesRef.current = [];
+    trailRef.current = [];
     resetAim();
     setMetrics(null);
     setCountdown(COUNTDOWN_SECONDS);
@@ -428,7 +466,7 @@ export default function TrackingTest() {
       phaseRef.current = "idle";
       setPhase("idle");
     }
-  }, [beginCountdown, refreshAimSensitivityScale, resetAim, stopAnimation]);
+  }, [beginCountdown, refreshMouseDpiScale, resetAim, stopAnimation]);
 
   useEffect(() => {
     resizeCanvas();
@@ -514,7 +552,7 @@ export default function TrackingTest() {
   }, [pauseTest, stopAnimation]);
 
   const handlePrimaryAction = useCallback(() => {
-    refreshAimSensitivityScale();
+    refreshMouseDpiScale();
 
     if (phase === "paused") {
       void resumeTest();
@@ -522,7 +560,7 @@ export default function TrackingTest() {
     }
 
     void startTest();
-  }, [phase, refreshAimSensitivityScale, resumeTest, startTest]);
+  }, [phase, refreshMouseDpiScale, resumeTest, startTest]);
 
   return (
     <main className="h-screen overflow-hidden bg-black text-zinc-100">
@@ -563,25 +601,25 @@ export default function TrackingTest() {
                 {phase === "paused" ? "Paused" : "30 seconds"}
               </p>
               <h2 className="mt-3 text-3xl font-semibold text-white">
-                ด่านนี้เช็ก tracking feel ตอนตามเป้าต่อเนื่อง
+                ด่านนี้เช็ก tracking feel จากการลากเมาส์ตามเส้น
               </h2>
               <p className="mt-4 leading-7 text-zinc-400">
-                พยายามให้เป้าอยู่กลาง crosshair ตลอดเวลา ไม่ต้องคลิก ให้ขยับแบบที่คุณเล่นจริง
-                แล้วสังเกตว่าเมาส์คุมเส้นทางได้เนียนแค่ไหน
+                ลากเมาส์ให้ trail ของคุณเกาะเส้น guide ให้มากที่สุด ไม่ต้องคลิก
+                ขยับแบบที่คุณเล่นจริง แล้วสังเกตว่าเมาส์คุมเส้นทางได้เนียนแค่ไหน
               </p>
               <div className="mt-5 text-left">
                 <p className="text-sm font-semibold text-zinc-200">ระหว่างเล่น ลองจับความรู้สึกว่า:</p>
                 <ul className="mt-3 list-disc space-y-2 pl-5 text-sm leading-6 text-zinc-400">
-                  <li>เมาส์ตามเป้าแล้วหลุดซ้าย/ขวาบ่อยไหม</li>
-                  <li>ตอนเป้าเปลี่ยนทิศ คุณต้องแก้ aim เยอะหรือเปล่า</li>
-                  <li>aim รู้สึกนิ่งหรือสั่นตอนพยายามเกาะเป้า</li>
+                  <li>trail หลุดจากเส้น guide ซ้าย/ขวาบ่อยไหม</li>
+                  <li>ตอนเส้นเปลี่ยนทิศ คุณต้องแก้เมาส์เยอะหรือเปล่า</li>
+                  <li>มือรู้สึกนิ่งหรือสั่นตอนพยายามลากให้เนียน</li>
                   <li>เมาส์ให้ฟีล control ดี หรือรู้สึกไหลเกินไป</li>
                 </ul>
                 <p className="mt-4 text-sm leading-6 text-zinc-500">
                   อย่าโฟกัสแค่คะแนน ให้จำฟีลตอน track ด้วย เพราะนี่คือข้อมูลสำคัญตอนแนะนำเมาส์
                 </p>
               </div>
-              <DiagnosticProfileControls onProfileChange={refreshAimSensitivityScale} />
+              <DiagnosticProfileControls onProfileChange={refreshMouseDpiScale} />
               <button
                 className="mt-6 w-full border border-emerald-400 bg-emerald-400 px-5 py-3 font-semibold text-black transition hover:bg-emerald-300"
                 type="button"

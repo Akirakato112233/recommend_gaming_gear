@@ -57,7 +57,6 @@ class UserPreference(BaseModel):
 class UserProfileCreate(BaseModel):
     game: Game
     dpi: float = Field(gt=0)
-    sensitivity: float = Field(gt=0)
     grip_style: GripStyle
     hand_length_mm: float = Field(gt=0)
     hand_width_mm: float = Field(gt=0)
