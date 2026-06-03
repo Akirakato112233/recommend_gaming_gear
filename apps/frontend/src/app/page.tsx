@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
   diagnosticRoutes,
@@ -15,7 +16,32 @@ import {
   supportedGames,
 } from "./profile-draft";
 
-const gripStyles = ["Palm", "Claw", "Fingertip", "Hybrid"] as const;
+const gripOptions = [
+  {
+    value: "Palm",
+    title: "PALM",
+    summary: "ฝ่ามือแนบเมาส์มากที่สุด นิ้ววางค่อนข้างราบ",
+    cue: "Full palm contact",
+    imageAlt: "Palm grip hand position on a gaming mouse",
+    imageSrc: "/images/PALM.png",
+  },
+  {
+    value: "Claw",
+    title: "CLAW",
+    summary: "อุ้งมือแตะท้ายเมาส์ นิ้วงอขึ้นเหมือนเกี่ยวปุ่ม",
+    cue: "Arched fingers",
+    imageAlt: "Claw grip hand position on a gaming mouse",
+    imageSrc: "/images/CLAW.png",
+  },
+  {
+    value: "Fingertip",
+    title: "FINGERTIP",
+    summary: "ใช้ปลายนิ้วคุมเมาส์เป็นหลัก ฝ่ามือแทบไม่แตะ",
+    cue: "Finger control",
+    imageAlt: "Fingertip grip hand position on a gaming mouse",
+    imageSrc: "/images/FINGERTIP.png",
+  },
+] as const;
 const preferenceOptions = [
   "shape",
   "weight",
@@ -24,6 +50,7 @@ const preferenceOptions = [
   "speed",
   "click",
   "coating",
+  "anything",
 ] as const;
 const likedFeatureOptions = [
   "lightweight",
@@ -227,20 +254,6 @@ export default function Home() {
                 </select>
               </Field>
 
-              <Field label="Grip style">
-                <select
-                  className="input-control"
-                  value={profile.gripStyle}
-                  onChange={(event) => updateProfile("gripStyle", event.target.value)}
-                >
-                  {gripStyles.map((gripStyle) => (
-                    <option key={gripStyle} value={gripStyle}>
-                      {gripStyle}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-
               <Field label="DPI">
                 <input
                   className="input-control"
@@ -303,6 +316,11 @@ export default function Home() {
                 />
               </Field>
             </div>
+
+            <GripSelector
+              selectedGrip={profile.gripStyle}
+              onSelect={(gripStyle) => updateProfile("gripStyle", gripStyle)}
+            />
 
             <div className="mt-7 grid gap-5 xl:grid-cols-2">
               <div className="space-y-3">
@@ -477,6 +495,72 @@ function Field({
       <span className="mb-2 block text-sm font-semibold text-zinc-300">{label}</span>
       {children}
     </label>
+  );
+}
+
+function GripSelector({
+  onSelect,
+  selectedGrip,
+}: {
+  onSelect: (gripStyle: string) => void;
+  selectedGrip: string;
+}) {
+  const selectedOption =
+    gripOptions.find((option) => option.value === selectedGrip) ?? gripOptions[0];
+
+  return (
+    <section className="mt-7 border border-zinc-800 bg-zinc-950 p-4">
+      <div className="flex flex-col gap-2 border-b border-zinc-800 pb-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h3 className="text-sm font-semibold text-zinc-200">Grip style</h3>
+          <p className="mt-1 text-sm leading-6 text-zinc-500">
+            เลือกรูปที่ใกล้กับท่าจับเมาส์จริงของคุณที่สุด
+          </p>
+        </div>
+        <p className="font-mono text-sm text-emerald-300">
+          Selected: {selectedOption.value}
+        </p>
+      </div>
+
+      <div className="mt-4 grid gap-3 lg:grid-cols-3">
+        {gripOptions.map((option) => {
+          const isSelected = option.value === selectedOption.value;
+
+          return (
+            <button
+              aria-pressed={isSelected}
+              className={
+                isSelected
+                  ? "border border-emerald-400 bg-black p-3 text-left shadow-[0_0_0_1px_rgba(52,211,153,0.45)] transition"
+                  : "border border-zinc-800 bg-black p-3 text-left transition hover:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-300"
+              }
+              key={option.value}
+              type="button"
+              onClick={() => onSelect(option.value)}
+            >
+              <div className="relative h-56 overflow-hidden border border-zinc-900 bg-black">
+                <Image
+                  alt={option.imageAlt}
+                  className="object-cover object-top"
+                  fill
+                  sizes="(max-width: 1024px) 100vw, 33vw"
+                  src={option.imageSrc}
+                />
+              </div>
+              <span className="mt-3 block font-mono text-lg font-semibold text-white">
+                {option.title}
+              </span>
+              <span className="mt-1 block text-xs uppercase tracking-[0.16em] text-emerald-300">
+                {option.cue}
+              </span>
+              <span className="mt-2 block text-sm leading-6 text-zinc-400">
+                {option.summary}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 
