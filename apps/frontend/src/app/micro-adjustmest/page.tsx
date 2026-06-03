@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { DiagnosticFeedbackForm } from "../diagnostic-feedback";
 import { setDiagnosticComplete } from "../diagnostic-progress";
 import {
   type AngularTarget,
@@ -266,7 +267,7 @@ export default function MicroAdjustmentTest() {
   const [phase, setPhase] = useState<TestPhase>("idle");
   const [countdown, setCountdown] = useState(COUNTDOWN_SECONDS);
   const [timeLeftMs, setTimeLeftMs] = useState(TEST_DURATION_MS);
-  const [metrics, setMetrics] = useState<MicroMetrics | null>(null);
+  const [, setMetrics] = useState<MicroMetrics | null>(null);
 
   const displayTime = useMemo(() => {
     if (phase === "countdown") {
@@ -630,27 +631,49 @@ export default function MicroAdjustmentTest() {
           <div className="absolute inset-0 z-20 flex items-center justify-center overflow-y-auto bg-black/70 px-6 py-8">
             <div className="max-h-[calc(100vh-4rem)] w-full max-w-2xl overflow-y-auto border border-zinc-800 bg-black p-6 text-center shadow-2xl">
               <p className="text-sm uppercase text-zinc-500">
-                {phase === "paused" ? "Paused" : "30 seconds"}
+                {phase === "paused"
+                  ? "Paused"
+                  : phase === "complete"
+                    ? "Feedback"
+                    : "30 seconds"}
               </p>
-              <h2 className="mt-3 text-3xl font-semibold text-white">
-                ด่านนี้เช็ก micro-adjust feel จากการลากระยะสั้น
-              </h2>
-              <p className="mt-4 leading-7 text-zinc-400">
-                finish zone จะอยู่ใกล้จุดเริ่ม ให้ขยับสั้น ๆ แล้วคลิกยืนยัน
-                ด่านนี้ช่วยดูว่าเมาส์คุมรายละเอียดเล็ก ๆ ได้ดีแค่ไหน
-              </p>
-              <div className="mt-5 text-left">
-                <p className="text-sm font-semibold text-zinc-200">ระหว่างเล่น ลองสังเกตว่า:</p>
-                <ul className="mt-3 list-disc space-y-2 pl-5 text-sm leading-6 text-zinc-400">
-                  <li>ขยับนิดเดียวแล้ว cursor ไปตามที่คิดไหม</li>
-                  <li>คุณแก้เลย finish zone แล้วต้องดึงกลับบ่อยหรือเปล่า</li>
-                  <li>ตอนหยุดใน zone มือยังนิ่งไหม</li>
-                  <li>จังหวะคลิกทำให้ cursor ขยับหลุดจาก zone หรือไม่</li>
-                </ul>
-                <p className="mt-4 text-sm leading-6 text-zinc-500">
-                  คะแนนช่วยบอกภาพรวม แต่ฟีลการคุมระยะสั้นจะบอกว่าเมาส์เข้ากับมือคุณแค่ไหน
-                </p>
-              </div>
+              {phase === "complete" ? (
+                <>
+                  <h2 className="mt-3 text-3xl font-semibold text-white">
+                    เล่นจบแล้ว ลองจับฟีล micro-adjust ของเมาส์ตัวนี้
+                  </h2>
+                  <p className="mt-4 leading-7 text-zinc-400">
+                    ไม่โชว์คะแนนดิบก่อน ให้ตอบจากความรู้สึกตอนขยับระยะสั้นและหยุดในจุดเล็ก ๆ
+                    เพื่อให้ AI เข้าใจ control feel ได้มากขึ้น
+                  </p>
+                  <DiagnosticFeedbackForm
+                    prompt="ตอนขยับสั้น ๆ เมาส์ตอบมือดีไหม มีแก้เลยจุด ดึงกลับบ่อย หรือคลิกแล้ว cursor หลุดจาก zone หรือเปล่า"
+                    testKey="micro"
+                  />
+                </>
+              ) : (
+                <>
+                  <h2 className="mt-3 text-3xl font-semibold text-white">
+                    ด่านนี้เช็ก micro-adjust feel จากการลากระยะสั้น
+                  </h2>
+                  <p className="mt-4 leading-7 text-zinc-400">
+                    finish zone จะอยู่ใกล้จุดเริ่ม ให้ขยับสั้น ๆ แล้วคลิกยืนยัน
+                    ด่านนี้ช่วยดูว่าเมาส์คุมรายละเอียดเล็ก ๆ ได้ดีแค่ไหน
+                  </p>
+                  <div className="mt-5 text-left">
+                    <p className="text-sm font-semibold text-zinc-200">ระหว่างเล่น ลองสังเกตว่า:</p>
+                    <ul className="mt-3 list-disc space-y-2 pl-5 text-sm leading-6 text-zinc-400">
+                      <li>ขยับนิดเดียวแล้ว cursor ไปตามที่คิดไหม</li>
+                      <li>คุณแก้เลย finish zone แล้วต้องดึงกลับบ่อยหรือเปล่า</li>
+                      <li>ตอนหยุดใน zone มือยังนิ่งไหม</li>
+                      <li>จังหวะคลิกทำให้ cursor ขยับหลุดจาก zone หรือไม่</li>
+                    </ul>
+                    <p className="mt-4 text-sm leading-6 text-zinc-500">
+                      คะแนนช่วยบอกภาพรวม แต่ฟีลการคุมระยะสั้นจะบอกว่าเมาส์เข้ากับมือคุณแค่ไหน
+                    </p>
+                  </div>
+                </>
+              )}
               <button
                 className="mt-6 w-full border border-emerald-400 bg-emerald-400 px-5 py-3 font-semibold text-black transition hover:bg-emerald-300"
                 type="button"
@@ -666,26 +689,7 @@ export default function MicroAdjustmentTest() {
           </div>
         )}
 
-        {metrics && (
-          <aside className="absolute bottom-4 left-4 right-4 z-30 grid gap-3 border border-zinc-800 bg-black/90 p-4 text-sm text-zinc-300 sm:left-auto sm:w-[420px] sm:grid-cols-2">
-            <Metric label="Accuracy" value={`${Math.round(metrics.accuracy * 100)}%`} />
-            <Metric label="Hits / misses" value={`${metrics.hits}/${metrics.misses}`} />
-            <Metric label="Avg click" value={`${metrics.averageTimeToClickMs}ms`} />
-            <Metric label="Avg miss" value={`${metrics.averageMissDistancePx}px`} />
-            <Metric label="Over-correct" value={`${Math.round(metrics.overCorrectionRate * 100)}%`} />
-            <Metric label="Fine control" value={`${Math.round(metrics.fineControlScore * 100)}%`} />
-          </aside>
-        )}
       </section>
     </main>
-  );
-}
-
-function Metric({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="border border-zinc-900 bg-zinc-950 px-3 py-2">
-      <span className="block text-xs uppercase text-zinc-500">{label}</span>
-      <strong className="mt-1 block font-mono text-lg text-white">{value}</strong>
-    </div>
   );
 }

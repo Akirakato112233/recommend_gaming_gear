@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { DiagnosticFeedbackForm } from "../diagnostic-feedback";
 import { setDiagnosticComplete } from "../diagnostic-progress";
 import {
   type AngularTarget,
@@ -237,7 +238,7 @@ export default function TrackingTest() {
   const [phase, setPhase] = useState<TestPhase>("idle");
   const [countdown, setCountdown] = useState(COUNTDOWN_SECONDS);
   const [timeLeftMs, setTimeLeftMs] = useState(TEST_DURATION_MS);
-  const [metrics, setMetrics] = useState<TrackingMetrics | null>(null);
+  const [, setMetrics] = useState<TrackingMetrics | null>(null);
 
   const displayTime = useMemo(() => {
     if (phase === "countdown") {
@@ -548,27 +549,49 @@ export default function TrackingTest() {
           <div className="absolute inset-0 z-20 flex items-center justify-center overflow-y-auto bg-black/70 px-6 py-8">
             <div className="max-h-[calc(100vh-4rem)] w-full max-w-2xl overflow-y-auto border border-zinc-800 bg-black p-6 text-center shadow-2xl">
               <p className="text-sm uppercase text-zinc-500">
-                {phase === "paused" ? "Paused" : "30 seconds"}
+                {phase === "paused"
+                  ? "Paused"
+                  : phase === "complete"
+                    ? "Feedback"
+                    : "30 seconds"}
               </p>
-              <h2 className="mt-3 text-3xl font-semibold text-white">
-                ด่านนี้เช็ก tracking feel จากการลากเมาส์ตามเส้น
-              </h2>
-              <p className="mt-4 leading-7 text-zinc-400">
-                ลากเมาส์ให้ trail ของคุณเกาะเส้น guide ให้มากที่สุด ไม่ต้องคลิก
-                ขยับแบบที่คุณเล่นจริง แล้วสังเกตว่าเมาส์คุมเส้นทางได้เนียนแค่ไหน
-              </p>
-              <div className="mt-5 text-left">
-                <p className="text-sm font-semibold text-zinc-200">ระหว่างเล่น ลองจับความรู้สึกว่า:</p>
-                <ul className="mt-3 list-disc space-y-2 pl-5 text-sm leading-6 text-zinc-400">
-                  <li>trail หลุดจากเส้น guide ซ้าย/ขวาบ่อยไหม</li>
-                  <li>ตอนเส้นเปลี่ยนทิศ คุณต้องแก้เมาส์เยอะหรือเปล่า</li>
-                  <li>มือรู้สึกนิ่งหรือสั่นตอนพยายามลากให้เนียน</li>
-                  <li>เมาส์ให้ฟีล control ดี หรือรู้สึกไหลเกินไป</li>
-                </ul>
-                <p className="mt-4 text-sm leading-6 text-zinc-500">
-                  อย่าโฟกัสแค่คะแนน ให้จำฟีลตอน track ด้วย เพราะนี่คือข้อมูลสำคัญตอนแนะนำเมาส์
-                </p>
-              </div>
+              {phase === "complete" ? (
+                <>
+                  <h2 className="mt-3 text-3xl font-semibold text-white">
+                    เล่นจบแล้ว ลองจับฟีล tracking ของเมาส์ตัวนี้
+                  </h2>
+                  <p className="mt-4 leading-7 text-zinc-400">
+                    ไม่โชว์คะแนนดิบก่อน ให้ตอบจากความรู้สึกตอนลากตามเส้นจริง ๆ
+                    เพราะ tracking feel บอกเรื่อง control, stability และความลื่นของเมาส์ได้ดี
+                  </p>
+                  <DiagnosticFeedbackForm
+                    prompt="ตอนลากตามเส้น เมาส์เกาะทางดีไหม รู้สึกนิ่ง ไหล สั่น หรือจำเป็นต้องแก้เส้นบ่อยแค่ไหน"
+                    testKey="tracking"
+                  />
+                </>
+              ) : (
+                <>
+                  <h2 className="mt-3 text-3xl font-semibold text-white">
+                    ด่านนี้เช็ก tracking feel จากการลากเมาส์ตามเส้น
+                  </h2>
+                  <p className="mt-4 leading-7 text-zinc-400">
+                    ลากเมาส์ให้ trail ของคุณเกาะเส้น guide ให้มากที่สุด ไม่ต้องคลิก
+                    ขยับแบบที่คุณเล่นจริง แล้วสังเกตว่าเมาส์คุมเส้นทางได้เนียนแค่ไหน
+                  </p>
+                  <div className="mt-5 text-left">
+                    <p className="text-sm font-semibold text-zinc-200">ระหว่างเล่น ลองจับความรู้สึกว่า:</p>
+                    <ul className="mt-3 list-disc space-y-2 pl-5 text-sm leading-6 text-zinc-400">
+                      <li>trail หลุดจากเส้น guide ซ้าย/ขวาบ่อยไหม</li>
+                      <li>ตอนเส้นเปลี่ยนทิศ คุณต้องแก้เมาส์เยอะหรือเปล่า</li>
+                      <li>มือรู้สึกนิ่งหรือสั่นตอนพยายามลากให้เนียน</li>
+                      <li>เมาส์ให้ฟีล control ดี หรือรู้สึกไหลเกินไป</li>
+                    </ul>
+                    <p className="mt-4 text-sm leading-6 text-zinc-500">
+                      อย่าโฟกัสแค่คะแนน ให้จำฟีลตอน track ด้วย เพราะนี่คือข้อมูลสำคัญตอนแนะนำเมาส์
+                    </p>
+                  </div>
+                </>
+              )}
               <button
                 className="mt-6 w-full border border-emerald-400 bg-emerald-400 px-5 py-3 font-semibold text-black transition hover:bg-emerald-300"
                 type="button"
@@ -584,26 +607,7 @@ export default function TrackingTest() {
           </div>
         )}
 
-        {metrics && (
-          <aside className="absolute bottom-4 left-4 right-4 z-30 grid gap-3 border border-zinc-800 bg-black/90 p-4 text-sm text-zinc-300 sm:left-auto sm:w-[420px] sm:grid-cols-2">
-            <Metric label="Accuracy" value={`${Math.round(metrics.accuracy * 100)}%`} />
-            <Metric label="Avg distance" value={`${metrics.averageDistancePx}px`} />
-            <Metric label="Smoothness" value={`${Math.round(metrics.smoothness * 100)}%`} />
-            <Metric label="Shakiness" value={`${Math.round(metrics.shakiness * 100)}%`} />
-            <Metric label="Est. lag" value={`${metrics.estimatedLagMs}ms`} />
-            <Metric label="Corrections/s" value={`${metrics.correctionFrequency}`} />
-          </aside>
-        )}
       </section>
     </main>
-  );
-}
-
-function Metric({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="border border-zinc-900 bg-zinc-950 px-3 py-2">
-      <span className="block text-xs uppercase text-zinc-500">{label}</span>
-      <strong className="mt-1 block font-mono text-lg text-white">{value}</strong>
-    </div>
   );
 }
