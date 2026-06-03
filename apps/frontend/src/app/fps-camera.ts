@@ -14,7 +14,6 @@ export type AngularTarget = {
 };
 
 const VERTICAL_FOV_RAD = toRadians(73);
-const MAX_PITCH_RAD = toRadians(88);
 
 export const DEFAULT_CAMERA_AIM: CameraAim = {
   yaw: 0,
@@ -33,7 +32,7 @@ export function distance(a: Point, b: Point) {
   return Math.hypot(a.x - b.x, a.y - b.y);
 }
 
-export function getViewportCenter(width: number, height: number): Point {
+function getViewportCenter(width: number, height: number): Point {
   return {
     x: width / 2,
     y: height / 2,
@@ -52,20 +51,6 @@ export function getFocalLength(height: number) {
   return height / 2 / Math.tan(VERTICAL_FOV_RAD / 2);
 }
 
-export function applyMouseMovementToCamera(
-  camera: CameraAim,
-  movementX: number,
-  movementY: number,
-  radiansPerMouseCount: number,
-) {
-  camera.yaw += movementX * radiansPerMouseCount;
-  camera.pitch = clamp(
-    camera.pitch - movementY * radiansPerMouseCount,
-    -MAX_PITCH_RAD,
-    MAX_PITCH_RAD,
-  );
-}
-
 export function projectAngularTarget(
   target: AngularTarget,
   camera: CameraAim,
@@ -81,33 +66,4 @@ export function projectAngularTarget(
     x: center.x + Math.tan(relativeYaw) * focalLength,
     y: center.y - Math.tan(relativePitch) * focalLength,
   };
-}
-
-export function getCameraScreenOffset(
-  camera: CameraAim,
-  width: number,
-  height: number,
-): Point {
-  const focalLength = getFocalLength(height);
-
-  return {
-    x: Math.tan(camera.yaw) * focalLength,
-    y: Math.tan(camera.pitch) * focalLength,
-  };
-}
-
-export function getDistanceToCrosshair(target: Point, width: number, height: number) {
-  return distance(target, getViewportCenter(width, height));
-}
-
-export async function requestRawPointerLock(element: HTMLElement) {
-  const requestPointerLock = element.requestPointerLock as (
-    options?: { unadjustedMovement?: boolean },
-  ) => Promise<void> | void;
-
-  try {
-    await requestPointerLock.call(element, { unadjustedMovement: true });
-  } catch {
-    await requestPointerLock.call(element);
-  }
 }

@@ -1,21 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { DiagnosticProfileControls } from "../diagnostic-profile-controls";
 import { setDiagnosticComplete } from "../diagnostic-progress";
 import {
   type AngularTarget,
-  type CameraAim,
   type Point,
   DEFAULT_CAMERA_AIM,
-  applyMouseMovementToCamera,
   clamp,
   distance,
   projectAngularTarget,
   randomInRange,
-  requestRawPointerLock,
 } from "../fps-camera";
-import { getStoredMouseRadiansPerCount } from "../profile-draft";
 
 const TEST_DURATION_MS = 30_000;
 const COUNTDOWN_SECONDS = 3;
@@ -69,15 +64,26 @@ function generateTarget(): Target {
 
 function getTargetScreenPosition(
   target: Target,
-  cameraAim: CameraAim,
   width: number,
   height: number,
 ): Point {
-  return projectAngularTarget(target, cameraAim, width, height);
+  return projectAngularTarget(target, DEFAULT_CAMERA_AIM, width, height);
 }
 
-function getCursorScreenPosition(cameraAim: CameraAim, width: number, height: number): Point {
-  return projectAngularTarget(cameraAim, DEFAULT_CAMERA_AIM, width, height);
+function getCanvasCenter(width: number, height: number): Point {
+  return {
+    x: width / 2,
+    y: height / 2,
+  };
+}
+
+function getCursorFromMouseEvent(event: MouseEvent, canvas: HTMLCanvasElement): Point {
+  const rect = canvas.getBoundingClientRect();
+
+  return {
+    x: clamp(event.clientX - rect.left, 0, rect.width),
+    y: clamp(event.clientY - rect.top, 0, rect.height),
+  };
 }
 
 function pushTrailPoint(trail: Point[], point: Point) {
@@ -209,7 +215,7 @@ export default function FlickTest() {
   const animationFrameRef = useRef<number | null>(null);
   const runFrameRef = useRef<(timestamp: number) => void>(() => {});
   const attemptsRef = useRef<FlickAttempt[]>([]);
-  const cameraAimRef = useRef<CameraAim>({ ...DEFAULT_CAMERA_AIM });
+  const cursorRef = useRef<Point>({ x: 0, y: 0 });
   const trailRef = useRef<Point[]>([]);
   const targetRef = useRef<Target | null>(null);
   const targetSpawnedAtRef = useRef(0);
@@ -218,14 +224,12 @@ export default function FlickTest() {
   const elapsedBeforePauseRef = useRef(0);
   const overshootRef = useRef(0);
   const undershootRef = useRef(0);
-  const mouseRadiansPerCountRef = useRef(0);
   const phaseRef = useRef<TestPhase>("idle");
 
   const [phase, setPhase] = useState<TestPhase>("idle");
   const [countdown, setCountdown] = useState(COUNTDOWN_SECONDS);
   const [timeLeftMs, setTimeLeftMs] = useState(TEST_DURATION_MS);
   const [metrics, setMetrics] = useState<FlickMetrics | null>(null);
-  const [isPointerLocked, setIsPointerLocked] = useState(false);
 
   const displayTime = useMemo(() => {
     if (phase === "countdown") {
@@ -236,16 +240,12 @@ export default function FlickTest() {
   }, [countdown, phase, timeLeftMs]);
 
   const pointerStatusText = useMemo(() => {
-    if (isPointerLocked) {
-      return "Pointer locked";
-    }
-
     if (phase === "paused") {
       return "Paused";
     }
 
-    return "Click start to lock pointer";
-  }, [isPointerLocked, phase]);
+    return "Normal cursor speed";
+  }, [phase]);
 
   const stopAnimation = useCallback(() => {
     if (animationFrameRef.current !== null) {
@@ -254,17 +254,16 @@ export default function FlickTest() {
     }
   }, []);
 
-  const resetAim = useCallback(() => {
-    cameraAimRef.current = { ...DEFAULT_CAMERA_AIM };
+  const resetCursor = useCallback((width: number, height: number) => {
+    cursorRef.current = getCanvasCenter(width, height);
   }, []);
 
   const spawnTarget = useCallback(() => {
-    resetAim();
     trailRef.current = [];
     targetRef.current = generateTarget();
     targetSpawnedAtRef.current = performance.now();
     closestDistanceRef.current = Number.POSITIVE_INFINITY;
-  }, [resetAim]);
+  }, []);
 
   const resizeCanvas = useCallback(() => {
     const canvas = canvasRef.current;
@@ -283,11 +282,15 @@ export default function FlickTest() {
     }
 
     context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
-    const cursor = getCursorScreenPosition(cameraAimRef.current, rect.width, rect.height);
-    drawScene(context, rect.width, rect.height, null, cursor, trailRef.current);
-  }, []);
+    if (cursorRef.current.x === 0 && cursorRef.current.y === 0) {
+      resetCursor(rect.width, rect.height);
+    }
 
-  const finishTest = useCallback((shouldExitPointerLock = true) => {
+    const cursor = cursorRef.current;
+    drawScene(context, rect.width, rect.height, null, cursor, trailRef.current);
+  }, [resetCursor]);
+
+  const finishTest = useCallback(() => {
     stopAnimation();
     elapsedBeforePauseRef.current = TEST_DURATION_MS;
     phaseRef.current = "complete";
@@ -297,10 +300,6 @@ export default function FlickTest() {
       calculateMetrics(attemptsRef.current, overshootRef.current, undershootRef.current),
     );
     setDiagnosticComplete("flick");
-
-    if (shouldExitPointerLock && document.pointerLockElement === canvasRef.current) {
-      document.exitPointerLock();
-    }
   }, [stopAnimation]);
 
   const pauseTest = useCallback(() => {
@@ -334,9 +333,9 @@ export default function FlickTest() {
           : elapsedBeforePauseRef.current;
       const remainingMs = Math.max(TEST_DURATION_MS - elapsedMs, 0);
       const finish = target
-        ? getTargetScreenPosition(target, DEFAULT_CAMERA_AIM, rect.width, rect.height)
+        ? getTargetScreenPosition(target, rect.width, rect.height)
         : null;
-      const cursor = getCursorScreenPosition(cameraAimRef.current, rect.width, rect.height);
+      const cursor = cursorRef.current;
       pushTrailPoint(trailRef.current, cursor);
 
       if (finish) {
@@ -402,62 +401,35 @@ export default function FlickTest() {
     });
   }, [spawnTarget, stopAnimation]);
 
-  const resumeTest = useCallback(async () => {
-    const canvas = canvasRef.current;
-    if (!canvas) {
-      return;
-    }
-
-    try {
-      await requestRawPointerLock(canvas);
-      beginCountdown();
-    } catch {
-      setIsPointerLocked(false);
-      phaseRef.current = "paused";
-      setPhase("paused");
-    }
+  const resumeTest = useCallback(() => {
+    beginCountdown();
   }, [beginCountdown]);
 
   useEffect(() => {
     runFrameRef.current = runFrame;
   }, [runFrame]);
 
-  const refreshMouseDpiScale = useCallback(() => {
-    mouseRadiansPerCountRef.current = getStoredMouseRadiansPerCount();
-  }, []);
-
-  useEffect(() => {
-    refreshMouseDpiScale();
-  }, [refreshMouseDpiScale]);
-
-  const startTest = useCallback(async () => {
+  const startTest = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) {
       return;
     }
 
-    refreshMouseDpiScale();
     stopAnimation();
     attemptsRef.current = [];
     overshootRef.current = 0;
     undershootRef.current = 0;
     trailRef.current = [];
     targetRef.current = null;
-    resetAim();
+    const rect = canvas.getBoundingClientRect();
+    resetCursor(rect.width, rect.height);
     setMetrics(null);
     setCountdown(COUNTDOWN_SECONDS);
     setTimeLeftMs(TEST_DURATION_MS);
     elapsedBeforePauseRef.current = 0;
 
-    try {
-      await requestRawPointerLock(canvas);
-      beginCountdown();
-    } catch {
-      setIsPointerLocked(false);
-      phaseRef.current = "idle";
-      setPhase("idle");
-    }
-  }, [beginCountdown, refreshMouseDpiScale, resetAim, stopAnimation]);
+    beginCountdown();
+  }, [beginCountdown, resetCursor, stopAnimation]);
 
   const handleShoot = useCallback(() => {
     if (phaseRef.current !== "running") {
@@ -471,8 +443,8 @@ export default function FlickTest() {
     }
 
     const rect = canvas.getBoundingClientRect();
-    const finish = getTargetScreenPosition(target, DEFAULT_CAMERA_AIM, rect.width, rect.height);
-    const cursor = getCursorScreenPosition(cameraAimRef.current, rect.width, rect.height);
+    const finish = getTargetScreenPosition(target, rect.width, rect.height);
+    const cursor = cursorRef.current;
     const finalDistancePx = distance(cursor, finish);
     const wasHit = finalDistancePx <= TARGET_RADIUS;
     const timeToClickMs = performance.now() - targetSpawnedAtRef.current;
@@ -526,72 +498,47 @@ export default function FlickTest() {
   }, [beginRunning, countdown, phase]);
 
   useEffect(() => {
-    const handlePointerLockChange = () => {
-      const hasPointerLock = document.pointerLockElement === canvasRef.current;
-      setIsPointerLocked(hasPointerLock);
-
-      if (hasPointerLock) {
-        return;
-      }
-
-      if (phaseRef.current === "running") {
-        pauseTest();
-        return;
-      }
-
-      if (phaseRef.current === "countdown") {
-        stopAnimation();
-        if (elapsedBeforePauseRef.current > 0 || attemptsRef.current.length > 0) {
-          phaseRef.current = "paused";
-          setPhase("paused");
-          setCountdown(COUNTDOWN_SECONDS);
-          setTimeLeftMs(Math.max(TEST_DURATION_MS - elapsedBeforePauseRef.current, 0));
-          return;
-        }
-
-        phaseRef.current = "idle";
-        setPhase("idle");
-        setCountdown(COUNTDOWN_SECONDS);
-        setTimeLeftMs(TEST_DURATION_MS);
-      }
-    };
-
     const handleMouseMove = (event: MouseEvent) => {
       const canvas = canvasRef.current;
       const canMoveAim = phaseRef.current === "countdown" || phaseRef.current === "running";
-      if (!canMoveAim || document.pointerLockElement !== canvas || !canvas) {
+      if (!canMoveAim || !canvas) {
         return;
       }
 
-      applyMouseMovementToCamera(
-        cameraAimRef.current,
-        event.movementX,
-        event.movementY,
-        mouseRadiansPerCountRef.current,
-      );
+      cursorRef.current = getCursorFromMouseEvent(event, canvas);
     };
 
-    document.addEventListener("pointerlockchange", handlePointerLockChange);
     document.addEventListener("mousemove", handleMouseMove);
     document.addEventListener("mousedown", handleShoot);
 
     return () => {
-      document.removeEventListener("pointerlockchange", handlePointerLockChange);
       document.removeEventListener("mousemove", handleMouseMove);
       document.removeEventListener("mousedown", handleShoot);
     };
-  }, [handleShoot, pauseTest, stopAnimation]);
+  }, [handleShoot]);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && phaseRef.current === "running") {
+        pauseTest();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [pauseTest]);
 
   const handlePrimaryAction = useCallback(() => {
-    refreshMouseDpiScale();
-
     if (phase === "paused") {
-      void resumeTest();
+      resumeTest();
       return;
     }
 
-    void startTest();
-  }, [phase, refreshMouseDpiScale, resumeTest, startTest]);
+    startTest();
+  }, [phase, resumeTest, startTest]);
 
   return (
     <main className="h-screen overflow-hidden bg-black text-zinc-100">
@@ -605,7 +552,7 @@ export default function FlickTest() {
           </div>
           <div className="text-right">
             <p className="font-mono text-2xl text-white">{displayTime}</p>
-            <p className={isPointerLocked ? "text-emerald-300" : "text-amber-300"}>
+            <p className="text-emerald-300">
               {pointerStatusText}
             </p>
           </div>
@@ -650,7 +597,6 @@ export default function FlickTest() {
                   อย่าโฟกัสแค่คะแนน ให้โฟกัสที่ความรู้สึกตอนเล่นด้วย โดยเฉพาะจังหวะหยุดจุด
                 </p>
               </div>
-              <DiagnosticProfileControls onProfileChange={refreshMouseDpiScale} />
               <button
                 className="mt-6 w-full border border-emerald-400 bg-emerald-400 px-5 py-3 font-semibold text-black transition hover:bg-emerald-300"
                 type="button"

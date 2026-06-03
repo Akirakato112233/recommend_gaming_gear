@@ -1,6 +1,4 @@
 export const PROFILE_DRAFT_STORAGE_KEY = "mouse-fit-profile-draft";
-export const BASELINE_DPI = 800;
-export const BASELINE_MOUSE_DEGREES_PER_COUNT = 0.035;
 
 export const supportedGames = ["CS2", "Valorant", "OW2", "Apex"] as const;
 
@@ -42,20 +40,6 @@ export const emptyProfile: MouseFitProfileDraft = {
   budgetMaxThb: "",
 };
 
-function clamp(value: number, min: number, max: number) {
-  return Math.min(Math.max(value, min), max);
-}
-
-function toPositiveNumber(value: string) {
-  const numberValue = Number(value);
-
-  if (!Number.isFinite(numberValue) || numberValue <= 0) {
-    return null;
-  }
-
-  return numberValue;
-}
-
 function isSupportedGame(game: string): game is SupportedGame {
   return supportedGames.includes(game as SupportedGame);
 }
@@ -87,16 +71,6 @@ function normalizeProfileDraft(profile: ProfileDraftInput): MouseFitProfileDraft
   };
 }
 
-export function calculateDpiScale(profile: Pick<MouseFitProfileDraft, "dpi">) {
-  const dpi = toPositiveNumber(profile.dpi);
-
-  if (dpi === null) {
-    return 1;
-  }
-
-  return clamp(dpi / BASELINE_DPI, 0.35, 3);
-}
-
 export function getInitialProfile(): MouseFitProfileDraft {
   if (typeof window === "undefined") {
     return emptyProfile;
@@ -124,11 +98,4 @@ export function saveProfileDraft(profile: MouseFitProfileDraft) {
     PROFILE_DRAFT_STORAGE_KEY,
     JSON.stringify(normalizeProfileDraft(profile)),
   );
-}
-
-export function getStoredMouseRadiansPerCount() {
-  const dpiScale = calculateDpiScale(getInitialProfile());
-  const degreesPerCount = BASELINE_MOUSE_DEGREES_PER_COUNT * dpiScale;
-
-  return degreesPerCount * (Math.PI / 180);
 }

@@ -44,8 +44,14 @@ const dislikedFeatureOptions = [
   "bad click",
 ] as const;
 
-function isPositiveNumber(value: string) {
-  return value.trim() !== "" && Number(value) > 0;
+function getTextValue(value: string | undefined) {
+  return value?.trim() ?? "";
+}
+
+function isPositiveNumber(value: string | undefined) {
+  const textValue = getTextValue(value);
+
+  return textValue !== "" && Number(textValue) > 0;
 }
 
 function toggleItem(items: string[], item: string) {
@@ -67,7 +73,9 @@ function getProfileCompleteness(profile: MouseFitProfileDraft) {
     profile.currentMouse,
     profile.primaryPreference,
   ];
-  const completedFields = requiredFields.filter((value) => value.trim() !== "").length;
+  const completedFields = requiredFields.filter(
+    (value) => getTextValue(value) !== "",
+  ).length;
 
   return Math.round((completedFields / requiredFields.length) * 100);
 }
@@ -105,8 +113,8 @@ export default function Home() {
       isPositiveNumber(profile.sensitivity) &&
       isPositiveNumber(profile.handLengthMm) &&
       isPositiveNumber(profile.handWidthMm) &&
-      profile.currentMouse.trim() !== "" &&
-      profile.primaryPreference.trim() !== ""
+      getTextValue(profile.currentMouse) !== "" &&
+      getTextValue(profile.primaryPreference) !== ""
     );
   }, [profile]);
 
