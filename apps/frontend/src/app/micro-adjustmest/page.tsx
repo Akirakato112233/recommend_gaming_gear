@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DiagnosticFeedbackForm } from "../diagnostic-feedback";
 import { setDiagnosticComplete } from "../diagnostic-progress";
@@ -685,6 +686,12 @@ export default function MicroAdjustmentTest() {
                     ? "Run again"
                     : "Start micro test"}
               </button>
+              <Link
+                className="mt-3 block w-full border border-zinc-700 px-5 py-3 font-semibold text-zinc-200 transition hover:border-zinc-500 hover:text-white"
+                href="/"
+              >
+                Back to profile
+              </Link>
             </div>
           </div>
         )}
