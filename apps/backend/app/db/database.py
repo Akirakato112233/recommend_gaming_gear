@@ -19,6 +19,17 @@ def create_database_tables() -> None:
 
     Base.metadata.create_all(bind=engine)
     drop_legacy_sensitivity_column()
+    seed_reference_data()
+
+
+def seed_reference_data() -> None:
+    from app.services.mouse_catalog_service import seed_mouse_catalog
+
+    db = SessionLocal()
+    try:
+        seed_mouse_catalog(db)
+    finally:
+        db.close()
 
 
 def drop_legacy_sensitivity_column() -> None:

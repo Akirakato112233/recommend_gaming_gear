@@ -1,0 +1,266 @@
+[
+  {
+    "id": "attack-shark-x3",
+    "name_mouse": "Attack Shark X3",
+    "price_thb": 961,
+    "web_price_ref": {
+      "store": "Shopee",
+      "url": "https://shopee.co.th/list/attack%20shark/x3",
+      "checked_at": "2026-06-04"
+    },
+    "grip": [
+      "claw",
+      "fingertip"
+    ]
+  },
+  {
+    "id": "logitech-g305-lightspeed",
+    "name_mouse": "Logitech G305 Lightspeed",
+    "price_thb": 990,
+    "web_price_ref": {
+      "store": "JIB",
+      "url": "https://www.jib.co.th/web/product/readProduct/30343/LOGITECH-G304-LIGHTSPEED-WIRELESS",
+      "checked_at": "2026-06-04"
+    },
+    "grip": [
+      "claw",
+      "fingertip"
+    ]
+  },
+  {
+    "id": "logitech-g502-lightspeed",
+    "name_mouse": "Logitech G502 Lightspeed",
+    "price_thb": 3990,
+    "web_price_ref": {
+      "store": "JIB",
+      "url": "https://www.jib.co.th/web/product/readProduct/34124/LOGITECH-G502-LIGHTSPEED-WIRELESS",
+      "checked_at": "2026-06-04"
+    },
+    "grip": [
+      "palm",
+      "claw"
+    ]
+  },
+  {
+    "id": "razer-deathadder-v3-pro-wireless",
+    "name_mouse": "Razer DeathAdder V3 Pro Wireless",
+    "price_thb": 3290,
+    "web_price_ref": {
+      "store": "IHAVECPU",
+      "url": "https://ihavecpu.com/product/11771/mouse-",
+      "checked_at": "2026-06-04"
+    },
+    "grip": [
+      "palm",
+      "claw"
+    ]
+  },
+  {
+    "id": "razer-viper-v3-pro-wireless",
+    "name_mouse": "Razer Viper V3 Pro Wireless",
+    "price_thb": 3990,
+    "web_price_ref": {
+      "store": "JIB",
+      "url": "https://www.jib.co.th/web/product/readProduct/0000066942",
+      "checked_at": "2026-06-04"
+    },
+    "grip": [
+      "claw",
+      "fingertip"
+    ]
+  },
+  {
+    "id": "logitech-g-pro-x-superlight-2",
+    "name_mouse": "Logitech G Pro X Superlight 2",
+    "price_thb": 3990,
+    "web_price_ref": {
+      "store": "JIB",
+      "url": "https://www.jib.co.th/web/product/readProduct/0000061791",
+      "checked_at": "2026-06-04"
+    },
+    "grip": [
+      "palm",
+      "claw"
+    ]
+  },
+  {
+    "id": "razer-basilisk-v3-pro-35k-wireless",
+    "name_mouse": "Razer Basilisk V3 Pro 35K Wireless",
+    "price_thb": 4490,
+    "web_price_ref": {
+      "store": "JIB",
+      "url": "https://www.jib.co.th/web/product/readProduct/77294",
+      "checked_at": "2026-06-04"
+    },
+    "grip": [
+      "palm"
+    ]
+  },
+  {
+    "id": "razer-deathadder-v4-pro-wireless",
+    "name_mouse": "Razer DeathAdder V4 Pro Wireless",
+    "price_thb": 5290,
+    "web_price_ref": {
+      "store": "JIB",
+      "url": "https://www.jib.co.th/web/product/readProduct/79429",
+      "checked_at": "2026-06-04"
+    },
+    "grip": [
+      "palm",
+      "claw"
+    ]
+  },
+  {
+    "id": "logitech-g-pro-2-lightspeed",
+    "name_mouse": "Logitech G Pro 2 Lightspeed",
+    "price_thb": 3790,
+    "web_price_ref": {
+      "store": "JIB",
+      "url": "https://www.jib.co.th/web/product/readProduct/0000070645",
+      "checked_at": "2026-06-04"
+    },
+    "grip": [
+      "palm",
+      "claw"
+    ]
+  },
+  {
+    "id": "lamzu-maya-x",
+    "name_mouse": "Lamzu Maya X",
+    "price_thb": 4190,
+    "web_price_ref": {
+      "store": "Shopee",
+      "url": "https://shopee.co.th/list/lamzu",
+      "checked_at": "2026-06-04"
+    },
+    "grip": [
+      "palm",
+      "claw"
+    ]
+  },
+  {
+    "id": "mchose-l7-ultra",
+    "name_mouse": "MCHOSE L7 Ultra",
+    "price_thb": 1899,
+    "web_price_ref": {
+      "store": "Shopee",
+      "url": "https://shopee.co.th/list/Mchose",
+      "checked_at": "2026-06-04"
+    },
+    "grip": [
+      "claw",
+      "fingertip"
+    ]
+  },
+  {
+    "id": "logitech-g502x-plus",
+    "name_mouse": "Logitech G502X Plus",
+    "price_thb": 4990,
+    "web_price_ref": {
+      "store": "JIB",
+      "url": "https://www.jib.co.th/web/product/readProduct/0000055180",
+      "checked_at": "2026-06-04"
+    },
+    "grip": [
+      "palm"
+    ]
+  },
+  {
+    "id": "corsair-sabre-v2-pro",
+    "name_mouse": "Corsair Sabre V2 Pro",
+    "price_thb": 2690,
+    "web_price_ref": {
+      "store": "JIB",
+      "url": "https://www.jib.co.th/web/product/readProduct/80206/CORSAIR-SABRE-V2-PRO-ULTRALIGHT---WHITE--CH-931G001-WW-",
+      "checked_at": "2026-06-04"
+    },
+    "grip": [
+      "claw",
+      "fingertip"
+    ]
+  },
+  {
+    "id": "asus-rog-harpe-2-ace",
+    "name_mouse": "Asus ROG Harpe 2 Ace",
+    "price_thb": 4690,
+    "web_price_ref": {
+      "store": "JIB",
+      "url": "https://www.jib.co.th/web/product/readProduct/82692/346/WIRELESS-MOUSE--%E0%B9%80%E0%B8%A1%E0%B8%B2%E0%B8%AA%E0%B9%8C%E0%B9%84%E0%B8%A3%E0%B9%89%E0%B8%AA%E0%B8%B2%E0%B8%A2--ASUS-ROG-HARPE-II-ACE---BLACK",
+      "checked_at": "2026-06-04"
+    },
+    "grip": [
+      "claw",
+      "fingertip"
+    ]
+  },
+  {
+    "id": "logitech-g-pro",
+    "name_mouse": "Logitech G Pro",
+    "price_thb": 2990,
+    "web_price_ref": {
+      "store": "JIB",
+      "url": "https://jib.co.th/web/product/readProduct/41159/WIRELESS-MOUSE--%E0%B9%80%E0%B8%A1%E0%B8%B2%E0%B8%AA%E0%B9%8C%E0%B9%84%E0%B8%A3%E0%B9%89%E0%B8%AA%E0%B8%B2%E0%B8%A2--LOGITECH-G-PRO-WIRELESS--BLACK-",
+      "checked_at": "2026-06-04"
+    },
+    "grip": [
+      "palm",
+      "claw"
+    ]
+  },
+  {
+    "id": "maya-x-8k",
+    "name_mouse": "Maya X 8K",
+    "price_thb": 4190,
+    "web_price_ref": {
+      "store": "Shopee",
+      "url": "https://shopee.co.th/list/lamzu",
+      "checked_at": "2026-06-04"
+    },
+    "grip": [
+      "palm",
+      "claw"
+    ]
+  },
+  {
+    "id": "ajazz-aj159-apex",
+    "name_mouse": "Ajazz AJ159 Apex",
+    "price_thb": 1801,
+    "web_price_ref": {
+      "store": "Shopee",
+      "url": "https://shopee.co.th/list/ajazz/AJ159",
+      "checked_at": "2026-06-04"
+    },
+    "grip": [
+      "claw",
+      "fingertip"
+    ]
+  },
+  {
+    "id": "razer-viper-v4-pro",
+    "name_mouse": "Razer Viper V4 Pro",
+    "price_thb": 5290,
+    "web_price_ref": {
+      "store": "JIB",
+      "url": "https://www.jib.co.th/web/product/readProduct/0000084211",
+      "checked_at": "2026-06-04"
+    },
+    "grip": [
+      "claw",
+      "fingertip"
+    ]
+  },
+  {
+    "id": "attack-shark-x3-pro",
+    "name_mouse": "Attack Shark X3 Pro",
+    "price_thb": 1196,
+    "web_price_ref": {
+      "store": "Shopee",
+      "url": "https://shopee.co.th/list/attack%20shark/x3",
+      "checked_at": "2026-06-04"
+    },
+    "grip": [
+      "claw",
+      "fingertip"
+    ]
+  }
+]

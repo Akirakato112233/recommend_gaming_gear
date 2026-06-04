@@ -25,8 +25,6 @@ services:
       - uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-3001} --reload
     environment:
       DATABASE_URL: postgresql+psycopg://postgres:postgres@db:5432/gaming_gear
-      APP_NAME: Recommend Gaming Gear API
-      API_PREFIX: /api
       PORT: 3001
     ports:
       - "3001:3001"
@@ -41,25 +39,32 @@ services:
       context: ./apps/frontend
     environment:
       API_URL: http://backend:3001
-      HOSTNAME: 0.0.0.0
-      NODE_ENV: development
       PORT: 3000
-      WATCHPACK_POLLING: "true"
     ports:
       - "3000:3000"
     volumes:
       - ./apps/frontend:/app
       - frontend_node_modules:/app/node_modules
       - frontend_next_cache:/app/.next
-    command:
-      - npm
-      - run
-      - dev
     depends_on:
       backend:
         condition: service_started
 
+  pgadmin:
+    image: dpage/pgadmin4
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@example.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      db:
+        condition: service_healthy
+
 volumes:
-  frontend_next_cache:
-  frontend_node_modules:
   postgres_data:
+  frontend_node_modules:
+  frontend_next_cache:
+  pgadmin_data:

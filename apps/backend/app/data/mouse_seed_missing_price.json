@@ -1,0 +1,161 @@
+[
+  {
+    "id": "Mchose-a7-ultra",
+    "name_mouse": "Mchose A7 Ultra",
+    "price_thb": 1799,
+    "web_price_ref": null,
+    "grip": [
+      "claw",
+      "fingertip"
+    ]
+  },
+  {
+    "id": "atk-vxe-mad-r",
+    "name_mouse": "ATK VXE MAD R",
+    "price_thb": null,
+    "web_price_ref": null,
+    "grip": [
+      "claw",
+      "fingertip"
+    ]
+  },
+  {
+    "id": "vxe-dragonfly-r1-pro",
+    "name_mouse": "VXE Dragonfly R1 Pro",
+    "price_thb": null,
+    "web_price_ref": null,
+    "grip": [
+      "claw",
+      "fingertip"
+    ]
+  },
+  {
+    "id": "endgame-gear-xm2w-4k-wireless",
+    "name_mouse": "Endgame Gear XM2W 4K Wireless",
+    "price_thb": null,
+    "web_price_ref": null,
+    "grip": [
+      "claw"
+    ]
+  },
+  {
+    "id": "logitech-pro-x2-super-strike",
+    "name_mouse": "Logitech Pro X2 Super Strike",
+    "price_thb": null,
+    "web_price_ref": null,
+    "grip": [
+      "palm",
+      "claw"
+    ]
+  },
+  {
+    "id": "pulsar-x2-crazy-light",
+    "name_mouse": "Pulsar X2 Crazy Light",
+    "price_thb": null,
+    "web_price_ref": null,
+    "grip": [
+      "claw",
+      "fingertip"
+    ]
+  },
+  {
+    "id": "atk-a9-plus",
+    "name_mouse": "ATK A9 Plus",
+    "price_thb": null,
+    "web_price_ref": null,
+    "grip": [
+      "claw",
+      "fingertip"
+    ]
+  },
+  {
+    "id": "jupiter",
+    "name_mouse": "Jupiter",
+    "price_thb": 1500,
+    "web_price_ref": null,
+    "grip": [
+      "claw",
+      "fingertip"
+    ]
+  },
+  {
+    "id": "hitscan-hyperlight",
+    "name_mouse": "Hitscan Hyperlight",
+    "price_thb": 4000,
+    "web_price_ref": null,
+    "grip": [
+      "claw",
+      "fingertip"
+    ]
+  },
+  {
+    "id": "loga-garuda-2",
+    "name_mouse": "Loga Garuda 2",
+    "price_thb": 2500,
+    "web_price_ref": null,
+    "grip": [
+      "claw",
+      "fingertip"
+    ]
+  },
+  {
+    "id": "atk-a9",
+    "name_mouse": "ATK A9",
+    "price_thb": 2500,
+    "web_price_ref": null,
+    "grip": [
+      "claw",
+      "fingertip"
+    ]
+  },
+  {
+    "id": "atk-a9-air",
+    "name_mouse": "ATK A9 Air",
+    "price_thb": null,
+    "web_price_ref": null,
+    "grip": [
+      "claw",
+      "fingertip"
+    ]
+  },
+  {
+    "id": "scyrox-v6",
+    "name_mouse": "Scyrox V6",
+    "price_thb": null,
+    "web_price_ref": null,
+    "grip": [
+      "claw",
+      "fingertip"
+    ]
+  },
+  {
+    "id": "vgn-f2-master-plus",
+    "name_mouse": "VGN F2 Master Plus",
+    "price_thb": null,
+    "web_price_ref": null,
+    "grip": [
+      "claw",
+      "fingertip"
+    ]
+  },
+  {
+    "id": "vxe-r1-or-atk-r1",
+    "name_mouse": "VXE R1 (or ATK R1)",
+    "price_thb": null,
+    "web_price_ref": null,
+    "grip": [
+      "claw",
+      "fingertip"
+    ]
+  },
+  {
+    "id": "f1-moba",
+    "name_mouse": "F1 Moba",
+    "price_thb": null,
+    "web_price_ref": null,
+    "grip": [
+      "claw",
+      "fingertip"
+    ]
+  }
+]
