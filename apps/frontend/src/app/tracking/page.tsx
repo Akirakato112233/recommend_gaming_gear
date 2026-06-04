@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DiagnosticFeedbackForm } from "../diagnostic-feedback";
-import { setDiagnosticComplete } from "../diagnostic-progress";
+import { isDiagnosticComplete, setDiagnosticComplete } from "../diagnostic-progress";
 import {
   type AngularTarget,
   type Point,
@@ -424,6 +424,22 @@ export default function TrackingTest() {
   useEffect(() => {
     runCountdownFrameRef.current = runCountdownFrame;
   }, [runCountdownFrame]);
+
+  useEffect(() => {
+    const loadProgressTimer = window.setTimeout(() => {
+      if (!isDiagnosticComplete("tracking")) {
+        return;
+      }
+
+      stopAnimation();
+      elapsedBeforePauseRef.current = TEST_DURATION_MS;
+      phaseRef.current = "complete";
+      setPhase("complete");
+      setTimeLeftMs(0);
+    }, 0);
+
+    return () => window.clearTimeout(loadProgressTimer);
+  }, [stopAnimation]);
 
   const startTest = useCallback(async () => {
     const canvas = canvasRef.current;

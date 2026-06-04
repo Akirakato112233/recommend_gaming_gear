@@ -67,3 +67,7 @@ export function setDiagnosticComplete(key: DiagnosticKey) {
     JSON.stringify(progress),
   );
 }
+
+export function isDiagnosticComplete(key: DiagnosticKey) {
+  return getDiagnosticProgress()[key] === "done";
+}
