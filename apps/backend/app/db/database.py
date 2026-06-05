@@ -17,9 +17,18 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 def create_database_tables() -> None:
     import app.models  # noqa: F401
 
+    create_vector_extension()
     Base.metadata.create_all(bind=engine)
     drop_legacy_sensitivity_column()
     seed_reference_data()
+
+
+def create_vector_extension() -> None:
+    if engine.dialect.name != "postgresql":
+        return
+
+    with engine.begin() as connection:
+        connection.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
 
 
 def seed_reference_data() -> None:

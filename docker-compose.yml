@@ -1,6 +1,6 @@
 services:
   db:
-    image: postgres:16-alpine
+    image: pgvector/pgvector:pg16
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
@@ -26,6 +26,9 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg://postgres:postgres@db:5432/gaming_gear
       PORT: 3001
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
+      OLLAMA_EMBEDDING_MODEL: embeddinggemma
+      EMBEDDING_DIMENSION: 768
     ports:
       - "3001:3001"
     volumes:

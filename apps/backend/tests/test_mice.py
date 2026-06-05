@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session, sessionmaker
 import app.models  # noqa: F401
 from app.core.config import settings
 from app.data import MOUSE_SEED
-from app.db.database import Base
+from app.db.database import Base, create_vector_extension
 from app.dependencies import get_db
 from app.main import create_app
 from app.models.mouse import MouseCatalog
@@ -15,7 +15,7 @@ from app.services.mouse_catalog_service import seed_mouse_catalog
 TEST_SCHEMA = "test_mouse_catalog"
 engine = create_engine(
     settings.database_url,
-    connect_args={"options": f"-csearch_path={TEST_SCHEMA}"},
+    connect_args={"options": f"-csearch_path={TEST_SCHEMA},public"},
     pool_pre_ping=True,
 )
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -36,6 +36,7 @@ client = TestClient(app)
 
 def setup_function() -> None:
     reset_test_schema()
+    create_vector_extension()
     Base.metadata.create_all(bind=engine)
 
     db = TestingSessionLocal()
