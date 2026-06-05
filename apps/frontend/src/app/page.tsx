@@ -307,6 +307,8 @@ export default function Home() {
                 />
               </Field>
 
+              <HandMeasurementGuide />
+
               <Field label="Current mouse" className="md:col-span-2">
                 <input
                   className="input-control"
@@ -495,6 +497,31 @@ function Field({
       <span className="mb-2 block text-sm font-semibold text-zinc-300">{label}</span>
       {children}
     </label>
+  );
+}
+
+function HandMeasurementGuide() {
+  return (
+    <section className="md:col-span-2 border border-zinc-800 bg-zinc-950 p-4">
+      <div className="flex flex-col gap-1 border-b border-zinc-800 pb-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h3 className="text-sm font-semibold text-zinc-200">Hand size guide</h3>
+          <p className="mt-1 text-sm leading-6 text-zinc-500">
+            ใช้รูปนี้เทียบก่อนกรอก hand length และ hand width เป็นมิลลิเมตร ( mm = cm × 10 )
+          </p>
+        </div>
+      </div>
+      <div className="relative mt-4 overflow-hidden border border-zinc-900 bg-black">
+        <Image
+          alt="Hand length and hand width measurement guide in millimeters"
+          className="h-auto w-full"
+          height={1122}
+          sizes="(max-width: 1024px) 100vw, 760px"
+          src="/images/hand-measurement.png"
+          width={1402}
+        />
+      </div>
+    </section>
   );
 }
 
