@@ -16,4 +16,6 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
+debug_chunks.json
+
 CONTEXT.md
