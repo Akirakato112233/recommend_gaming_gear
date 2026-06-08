@@ -5,8 +5,7 @@ from fastapi import FastAPI
 
 from app.core.config import settings
 from app.db.database import create_database_tables
-from app.routers import health, mice, profiles, rag, recommendations
-
+from app.routers import health, mice, profiles, rag, recommendations, web_search
 
 def create_app(create_tables: bool = True) -> FastAPI:
     @asynccontextmanager
@@ -23,6 +22,7 @@ def create_app(create_tables: bool = True) -> FastAPI:
     app.include_router(profiles.router, prefix=settings.api_prefix)
     app.include_router(rag.router, prefix=settings.api_prefix)
     app.include_router(recommendations.router, prefix=settings.api_prefix)
+    app.include_router(web_search.router, prefix=settings.api_prefix)
     return app
 
 
