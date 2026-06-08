@@ -9,7 +9,6 @@ import {
   type Point,
   DEFAULT_CAMERA_AIM,
   clamp,
-  distance,
   projectAngularTarget,
 } from "../fps-camera";
 
@@ -19,26 +18,8 @@ const TARGET_RADIUS = 18;
 const CURSOR_RADIUS = 5;
 const TRAIL_LIMIT = 180;
 
-type TestPhase = "idle" | "countdown" | "running" | "paused" | "complete";
+type TestPhase = "idle" | "countdown" | "running" | "complete";
 
-
-type FrameSample = {
-  elapsedMs: number;
-  guide: Point;
-  cursor: Point;
-  aimOffset: Point;
-  distance: number;
-};
-
-type TrackingMetrics = {
-  durationMs: number;
-  accuracy: number;
-  averageDistancePx: number;
-  smoothness: number;
-  shakiness: number;
-  estimatedLagMs: number;
-  correctionFrequency: number;
-};
 
 function getTargetWorldPosition(elapsedMs: number): AngularTarget {
   const t = elapsedMs / 1000;
@@ -84,84 +65,6 @@ function pushTrailPoint(trail: Point[], point: Point) {
   if (trail.length > TRAIL_LIMIT) {
     trail.shift();
   }
-}
-
-function calculateMetrics(samples: FrameSample[]): TrackingMetrics {
-  if (samples.length < 2) {
-    return {
-      durationMs: TEST_DURATION_MS,
-      accuracy: 0,
-      averageDistancePx: 0,
-      smoothness: 0,
-      shakiness: 0,
-      estimatedLagMs: 0,
-      correctionFrequency: 0,
-    };
-  }
-
-  const totalDistance = samples.reduce((sum, sample) => sum + sample.distance, 0);
-  const framesInsideTarget = samples.filter(
-    (sample) => sample.distance <= TARGET_RADIUS,
-  ).length;
-  const averageDistancePx = totalDistance / samples.length;
-  const accuracy = framesInsideTarget / samples.length;
-
-  const velocities = samples.slice(1).map((sample, index) => {
-    const previous = samples[index];
-    const dt = Math.max((sample.elapsedMs - previous.elapsedMs) / 1000, 0.001);
-    return {
-      x: (sample.aimOffset.x - previous.aimOffset.x) / dt,
-      y: (sample.aimOffset.y - previous.aimOffset.y) / dt,
-    };
-  });
-
-  const acceleration = velocities.slice(1).map((velocity, index) => {
-    const previous = velocities[index];
-    return Math.hypot(velocity.x - previous.x, velocity.y - previous.y);
-  });
-
-  const averageAcceleration =
-    acceleration.reduce((sum, value) => sum + value, 0) / Math.max(acceleration.length, 1);
-  const smoothness = clamp(1 - averageAcceleration / 8000, 0, 1);
-
-  const nearTargetVelocities = velocities.filter((_, index) => {
-    const sample = samples[index + 1];
-    return sample.distance <= TARGET_RADIUS * 2.4;
-  });
-  const nearTargetSpeed =
-    nearTargetVelocities.reduce((sum, velocity) => sum + Math.hypot(velocity.x, velocity.y), 0) /
-    Math.max(nearTargetVelocities.length, 1);
-  const shakiness = clamp(nearTargetSpeed / 900, 0, 1);
-
-  let correctionCount = 0;
-  let previousErrorX = samples[0].guide.x - samples[0].cursor.x;
-  let previousErrorY = samples[0].guide.y - samples[0].cursor.y;
-  for (const sample of samples.slice(1)) {
-    const errorX = sample.guide.x - sample.cursor.x;
-    const errorY = sample.guide.y - sample.cursor.y;
-    if (Math.sign(errorX) !== Math.sign(previousErrorX) && Math.abs(errorX) > 4) {
-      correctionCount += 1;
-    }
-    if (Math.sign(errorY) !== Math.sign(previousErrorY) && Math.abs(errorY) > 4) {
-      correctionCount += 1;
-    }
-    previousErrorX = errorX;
-    previousErrorY = errorY;
-  }
-
-  const durationSeconds = TEST_DURATION_MS / 1000;
-  const correctionFrequency = correctionCount / durationSeconds;
-  const estimatedLagMs = clamp((averageDistancePx / 240) * 1000, 0, 300);
-
-  return {
-    durationMs: TEST_DURATION_MS,
-    accuracy: Number(accuracy.toFixed(3)),
-    averageDistancePx: Number(averageDistancePx.toFixed(1)),
-    smoothness: Number(smoothness.toFixed(3)),
-    shakiness: Number(shakiness.toFixed(3)),
-    estimatedLagMs: Math.round(estimatedLagMs),
-    correctionFrequency: Number(correctionFrequency.toFixed(2)),
-  };
 }
 
 function drawScene(
@@ -229,17 +132,14 @@ export default function TrackingTest() {
   const animationFrameRef = useRef<number | null>(null);
   const runFrameRef = useRef<(timestamp: number) => void>(() => {});
   const runCountdownFrameRef = useRef<(timestamp: number) => void>(() => {});
-  const samplesRef = useRef<FrameSample[]>([]);
   const cursorRef = useRef<Point>({ x: 0, y: 0 });
   const trailRef = useRef<Point[]>([]);
   const startTimeRef = useRef<number>(0);
   const targetStartTimeRef = useRef<number>(0);
-  const elapsedBeforePauseRef = useRef<number>(0);
   const phaseRef = useRef<TestPhase>("idle");
   const [phase, setPhase] = useState<TestPhase>("idle");
   const [countdown, setCountdown] = useState(COUNTDOWN_SECONDS);
   const [timeLeftMs, setTimeLeftMs] = useState(TEST_DURATION_MS);
-  const [, setMetrics] = useState<TrackingMetrics | null>(null);
 
   const displayTime = useMemo(() => {
     if (phase === "countdown") {
@@ -249,13 +149,7 @@ export default function TrackingTest() {
     return `${Math.ceil(timeLeftMs / 1000)}s`;
   }, [countdown, phase, timeLeftMs]);
 
-  const pointerStatusText = useMemo(() => {
-    if (phase === "paused") {
-      return "Paused";
-    }
-
-    return "Normal cursor speed";
-  }, [phase]);
+  const pointerStatusText = "Normal cursor speed";
 
   const stopAnimation = useCallback(() => {
     if (animationFrameRef.current !== null) {
@@ -301,27 +195,10 @@ export default function TrackingTest() {
 
   const finishTest = useCallback(() => {
     stopAnimation();
-    elapsedBeforePauseRef.current = TEST_DURATION_MS;
     phaseRef.current = "complete";
     setPhase("complete");
     setTimeLeftMs(0);
-    setMetrics(calculateMetrics(samplesRef.current));
     setDiagnosticComplete("tracking");
-  }, [stopAnimation]);
-
-  const pauseTest = useCallback(() => {
-    stopAnimation();
-
-    const elapsedMs = clamp(
-      elapsedBeforePauseRef.current + performance.now() - startTimeRef.current,
-      0,
-      TEST_DURATION_MS,
-    );
-
-    elapsedBeforePauseRef.current = elapsedMs;
-    phaseRef.current = "paused";
-    setPhase("paused");
-    setTimeLeftMs(Math.max(TEST_DURATION_MS - elapsedMs, 0));
   }, [stopAnimation]);
 
   const runCountdownFrame = useCallback((timestamp: number) => {
@@ -368,7 +245,7 @@ export default function TrackingTest() {
       }
 
       const rect = canvas.getBoundingClientRect();
-      const elapsedMs = elapsedBeforePauseRef.current + timestamp - startTimeRef.current;
+      const elapsedMs = timestamp - startTimeRef.current;
       const remainingMs = Math.max(TEST_DURATION_MS - elapsedMs, 0);
       const guide = getTargetScreenPosition(
         timestamp - targetStartTimeRef.current,
@@ -376,16 +253,7 @@ export default function TrackingTest() {
         rect.height,
       );
       const cursor = cursorRef.current;
-      const currentDistance = distance(guide, cursor);
       pushTrailPoint(trailRef.current, cursor);
-
-      samplesRef.current.push({
-        elapsedMs,
-        guide,
-        cursor,
-        aimOffset: cursor,
-        distance: currentDistance,
-      });
 
       setTimeLeftMs(remainingMs);
       drawScene(context, rect.width, rect.height, guide, cursor, trailRef.current, elapsedMs);
@@ -406,16 +274,12 @@ export default function TrackingTest() {
     stopAnimation();
     phaseRef.current = "running";
     setPhase("running");
-    setTimeLeftMs(Math.max(TEST_DURATION_MS - elapsedBeforePauseRef.current, 0));
+    setTimeLeftMs(TEST_DURATION_MS);
     startTimeRef.current = performance.now();
     animationFrameRef.current = requestAnimationFrame((timestamp) => {
       runFrameRef.current(timestamp);
     });
   }, [stopAnimation]);
-
-  const resumeTest = useCallback(() => {
-    beginCountdown();
-  }, [beginCountdown]);
 
   useEffect(() => {
     runFrameRef.current = runFrame;
@@ -432,7 +296,6 @@ export default function TrackingTest() {
       }
 
       stopAnimation();
-      elapsedBeforePauseRef.current = TEST_DURATION_MS;
       phaseRef.current = "complete";
       setPhase("complete");
       setTimeLeftMs(0);
@@ -448,14 +311,11 @@ export default function TrackingTest() {
     }
 
     stopAnimation();
-    samplesRef.current = [];
     trailRef.current = [];
     const rect = canvas.getBoundingClientRect();
     resetCursor(rect.width, rect.height);
-    setMetrics(null);
     setCountdown(COUNTDOWN_SECONDS);
     setTimeLeftMs(TEST_DURATION_MS);
-    elapsedBeforePauseRef.current = 0;
     targetStartTimeRef.current = performance.now();
 
     beginCountdown();
@@ -507,29 +367,6 @@ export default function TrackingTest() {
     };
   }, []);
 
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && phaseRef.current === "running") {
-        pauseTest();
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [pauseTest]);
-
-  const handlePrimaryAction = useCallback(() => {
-    if (phase === "paused") {
-      resumeTest();
-      return;
-    }
-
-    startTest();
-  }, [phase, resumeTest, startTest]);
-
   return (
     <main className="h-screen overflow-hidden bg-black text-zinc-100">
       <section className="relative flex h-full flex-col">
@@ -566,11 +403,7 @@ export default function TrackingTest() {
           <div className="absolute inset-0 z-20 flex items-center justify-center overflow-y-auto bg-black/70 px-6 py-8">
             <div className="max-h-[calc(100vh-4rem)] w-full max-w-2xl overflow-y-auto border border-zinc-800 bg-black p-6 text-center shadow-2xl">
               <p className="text-sm uppercase text-zinc-500">
-                {phase === "paused"
-                  ? "Paused"
-                  : phase === "complete"
-                    ? "Feedback"
-                    : "30 seconds"}
+                {phase === "complete" ? "Feedback" : "30 seconds"}
               </p>
               {phase === "complete" ? (
                 <>
@@ -612,13 +445,9 @@ export default function TrackingTest() {
               <button
                 className="mt-6 w-full border border-emerald-400 bg-emerald-400 px-5 py-3 font-semibold text-black transition hover:bg-emerald-300"
                 type="button"
-                onClick={handlePrimaryAction}
+                onClick={startTest}
               >
-                {phase === "paused"
-                  ? "Continue"
-                  : phase === "complete"
-                    ? "Run again"
-                    : "Start tracking"}
+                {phase === "complete" ? "Run again" : "Start tracking"}
               </button>
               <Link
                 className="mt-3 block w-full border border-zinc-700 px-5 py-3 font-semibold text-zinc-200 transition hover:border-zinc-500 hover:text-white"

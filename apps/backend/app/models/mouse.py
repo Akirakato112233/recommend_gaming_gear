@@ -4,7 +4,7 @@ from sqlalchemy import DateTime, Integer, JSON, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.database import Base
-from app.models.session import utc_now
+from app.models.common import utc_now
 
 
 class MouseCatalog(Base):

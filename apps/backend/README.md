@@ -1,81 +1,72 @@
 # Recommend Gaming Gear Backend
 
-FastAPI backend skeleton for the project.
+FastAPI backend for the current mouse recommendation flow.
+
+## What It Does
+
+- Seeds and serves the mouse catalog.
+- Filters mice by grip style and price.
+- Stores RAG chunks with pgvector embeddings.
+- Retrieves RAG evidence for filtered candidate mice.
+- Sends profile + diagnostic session context + evidence chunks to local Ollama.
+- Returns an AI summary and the evidence chunks used.
+
+The backend no longer persists user profile/session data. The frontend keeps profile and diagnostic state in browser `sessionStorage` and sends it to `/api/recommendations/summary` only when the user runs analysis.
 
 ## Structure
 
-The project follows the layered FastAPI layout from the referenced best-practices
-article:
-
 - `app/main.py` - FastAPI application entry point
-- `app/routers/` - public API routes
-- `app/core/` - configuration and core settings
-- `app/db/` - database engine/session setup
-- `app/dependencies.py` - shared FastAPI dependencies
-- `app/models/` - future SQLAlchemy models
-- `app/schemas/` - Pydantic schemas
-- `app/services/` - future business logic
-- `app/internal/` - future internal-only routes/tools
-- `tests/` - API tests
+- `app/routers/health.py` - health check
+- `app/routers/mice.py` - mouse catalog and filter API
+- `app/routers/recommendations.py` - AI summary API
+- `app/services/` - catalog filtering, RAG ranking, LLM summary
+- `app/rag/` - chunking, embedding, search, ingest
+- `app/models/` - SQLAlchemy models for mouse catalog and RAG chunks
+- `app/schemas/` - Pydantic request/response models
+- `tests/` - API and service tests
 
-## Getting Started
+## Run
 
-Install dependencies:
+From the repository root:
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
+npm run docker:up
 ```
 
-Start the API:
+Backend URL:
 
 ```bash
-uvicorn app.main:app --reload --host 0.0.0.0 --port 3001
-```
-
-Run tests:
-
-```bash
-pytest
+http://localhost:3001
 ```
 
 Health check:
 
 ```bash
-curl http://localhost:3001/api/health/
+curl http://localhost:3001/api/health
 ```
 
-Validate a profile without saving:
+## Seed RAG Data
+
+After Docker is running:
 
 ```bash
-curl -X POST http://localhost:3001/api/profile/validate \
-  -H "Content-Type: application/json" \
-  -d '{
-    "game": "valorant",
-    "dpi": 800,
-    "grip_style": "claw",
-    "hand_length_mm": 185,
-    "hand_width_mm": 95.5,
-    "current_mouse": {
-      "mouse_name": "Logitech G Pro X Superlight",
-      "likes": ["เบา", "wireless", "balance"],
-      "dislikes": ["ลื่น", "click ไม่ชอบ"]
-    },
-    "preference": {
-      "preferred_shape": "symmetric",
-      "connectivity": "wireless_only",
-      "budget_min_thb": 3000,
-      "budget_max_thb": 6000,
-      "thailand_only": true
-    }
-  }'
+docker compose exec backend python -m app.rag.ingest
 ```
 
-Save after a successful recommendation:
+This creates embeddings with Ollama `embeddinggemma` and stores chunks in `rag_chunks`.
+
+## Main Endpoints
+
+Filter mice:
 
 ```bash
-curl -X POST http://localhost:3001/api/recommendations/complete \
+curl "http://localhost:3001/api/mice/filter?grip_style=claw&min_price_thb=3000&max_price_thb=6000"
+```
+
+Generate recommendation summary:
+
+```bash
+curl -X POST http://localhost:3001/api/recommendations/summary \
   -H "Content-Type: application/json" \
   -d '{
     "profile": {
@@ -86,8 +77,8 @@ curl -X POST http://localhost:3001/api/recommendations/complete \
       "hand_width_mm": 95.5,
       "current_mouse": {
         "mouse_name": "Logitech G Pro X Superlight",
-        "likes": ["เบา", "wireless", "balance"],
-        "dislikes": ["ลื่น", "click ไม่ชอบ"]
+        "likes": ["wireless", "balance"],
+        "dislikes": ["ลื่น"]
       },
       "preference": {
         "preferred_shape": "symmetric",
@@ -97,30 +88,24 @@ curl -X POST http://localhost:3001/api/recommendations/complete \
         "thailand_only": true
       }
     },
-    "recommendation_summary": "Matched with a light symmetric wireless mouse."
+    "candidate_mouse_ids": [
+      "asus-rog-harpe-2-ace",
+      "atk-a9",
+      "corsair-sabre-v2-pro"
+    ],
+    "top_k": 8,
+    "diagnostic_progress": {
+      "tracking": "done",
+      "flick": "done",
+      "micro": "done"
+    },
+    "diagnostic_feedback": {},
+    "client_context": "sensitivity: 1.5"
   }'
 ```
 
-Read the latest profile:
+## Tests
 
 ```bash
-curl http://localhost:3001/api/profiles/
+docker compose exec backend pytest
 ```
-
-Read a profile by id:
-
-```bash
-curl http://localhost:3001/api/profiles/<profile-id>
-```
-
-## Database Schema
-
-The MVP stores profile data in Postgres with SQLAlchemy:
-
-- `user_sessions` - anonymous user sessions
-- `mouse_fit_profiles` - game, DPI, grip, hand size, current mouse feedback, and preferences
-- `diagnostic_results` - placeholder table for future aim-test metrics and trait summaries
-
-Profile data is saved only after `POST /api/recommendations/complete` succeeds.
-Tables are created automatically on API startup for the MVP. Add Alembic before
-production migrations become important.

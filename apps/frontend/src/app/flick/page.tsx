@@ -20,32 +20,10 @@ const TARGET_RADIUS = 22;
 const CURSOR_RADIUS = 5;
 const TRAIL_LIMIT = 90;
 
-type TestPhase = "idle" | "countdown" | "running" | "paused" | "complete";
+type TestPhase = "idle" | "countdown" | "running" | "complete";
 
 
 type Target = AngularTarget;
-
-type FlickMissResult = {
-  overshoot: number;
-  undershoot: number;
-};
-
-type FlickAttempt = {
-  wasHit: boolean;
-  timeToClickMs: number;
-  missDistancePx: number;
-};
-
-type FlickMetrics = {
-  hits: number;
-  misses: number;
-  accuracy: number;
-  averageTimeToClickMs: number;
-  averageMissDistancePx: number;
-  overshootRate: number;
-  undershootRate: number;
-};
-
 
 function generateTarget(): Target {
   let target: Target = { yaw: 0, pitch: 0 };
@@ -96,60 +74,6 @@ function pushTrailPoint(trail: Point[], point: Point) {
   }
 }
 
-
-function getFlickMissResultFromDistance(
-  finalDistancePx: number,
-  closestDistancePx: number,
-  targetRadiusPx: number,
-): FlickMissResult {
-  const passedTarget = closestDistancePx <= targetRadiusPx * 1.4;
-  const endedFarAfterPassing = finalDistancePx > closestDistancePx + targetRadiusPx;
-
-  if (passedTarget && endedFarAfterPassing) {
-    return {
-      overshoot: 1,
-      undershoot: 0,
-    };
-  }
-
-  return {
-    overshoot: 0,
-    undershoot: 1,
-  };
-}
-
-function average(values: number[]) {
-  if (values.length === 0) {
-    return 0;
-  }
-
-  return values.reduce((sum, value) => sum + value, 0) / values.length;
-}
-
-function calculateMetrics(
-  attempts: FlickAttempt[],
-  overshoots: number,
-  undershoots: number,
-): FlickMetrics {
-  const hits = attempts.filter((attempt) => attempt.wasHit).length;
-  const misses = attempts.length - hits;
-  const missAttempts = attempts.filter((attempt) => !attempt.wasHit);
-  const accuracy = attempts.length === 0 ? 0 : hits / attempts.length;
-
-  return {
-    hits,
-    misses,
-    accuracy: Number(accuracy.toFixed(3)),
-    averageTimeToClickMs: Math.round(
-      average(attempts.map((attempt) => attempt.timeToClickMs)),
-    ),
-    averageMissDistancePx: Number(
-      average(missAttempts.map((attempt) => attempt.missDistancePx)).toFixed(1),
-    ),
-    overshootRate: misses === 0 ? 0 : Number((overshoots / misses).toFixed(3)),
-    undershootRate: misses === 0 ? 0 : Number((undershoots / misses).toFixed(3)),
-  };
-}
 
 function drawScene(
   context: CanvasRenderingContext2D,
@@ -216,22 +140,15 @@ export default function FlickTest() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const runFrameRef = useRef<(timestamp: number) => void>(() => {});
-  const attemptsRef = useRef<FlickAttempt[]>([]);
   const cursorRef = useRef<Point>({ x: 0, y: 0 });
   const trailRef = useRef<Point[]>([]);
   const targetRef = useRef<Target | null>(null);
-  const targetSpawnedAtRef = useRef(0);
-  const closestDistanceRef = useRef(Number.POSITIVE_INFINITY);
   const startTimeRef = useRef(0);
-  const elapsedBeforePauseRef = useRef(0);
-  const overshootRef = useRef(0);
-  const undershootRef = useRef(0);
   const phaseRef = useRef<TestPhase>("idle");
 
   const [phase, setPhase] = useState<TestPhase>("idle");
   const [countdown, setCountdown] = useState(COUNTDOWN_SECONDS);
   const [timeLeftMs, setTimeLeftMs] = useState(TEST_DURATION_MS);
-  const [, setMetrics] = useState<FlickMetrics | null>(null);
 
   const displayTime = useMemo(() => {
     if (phase === "countdown") {
@@ -241,13 +158,7 @@ export default function FlickTest() {
     return `${Math.ceil(timeLeftMs / 1000)}s`;
   }, [countdown, phase, timeLeftMs]);
 
-  const pointerStatusText = useMemo(() => {
-    if (phase === "paused") {
-      return "Paused";
-    }
-
-    return "Normal cursor speed";
-  }, [phase]);
+  const pointerStatusText = "Normal cursor speed";
 
   const stopAnimation = useCallback(() => {
     if (animationFrameRef.current !== null) {
@@ -263,8 +174,6 @@ export default function FlickTest() {
   const spawnTarget = useCallback(() => {
     trailRef.current = [];
     targetRef.current = generateTarget();
-    targetSpawnedAtRef.current = performance.now();
-    closestDistanceRef.current = Number.POSITIVE_INFINITY;
   }, []);
 
   const resizeCanvas = useCallback(() => {
@@ -294,29 +203,10 @@ export default function FlickTest() {
 
   const finishTest = useCallback(() => {
     stopAnimation();
-    elapsedBeforePauseRef.current = TEST_DURATION_MS;
     phaseRef.current = "complete";
     setPhase("complete");
     setTimeLeftMs(0);
-    setMetrics(
-      calculateMetrics(attemptsRef.current, overshootRef.current, undershootRef.current),
-    );
     setDiagnosticComplete("flick");
-  }, [stopAnimation]);
-
-  const pauseTest = useCallback(() => {
-    stopAnimation();
-
-    const elapsedMs = clamp(
-      elapsedBeforePauseRef.current + performance.now() - startTimeRef.current,
-      0,
-      TEST_DURATION_MS,
-    );
-
-    elapsedBeforePauseRef.current = elapsedMs;
-    phaseRef.current = "paused";
-    setPhase("paused");
-    setTimeLeftMs(Math.max(TEST_DURATION_MS - elapsedMs, 0));
   }, [stopAnimation]);
 
   const runFrame = useCallback(
@@ -331,23 +221,14 @@ export default function FlickTest() {
       const target = targetRef.current;
       const elapsedMs =
         phaseRef.current === "running"
-          ? elapsedBeforePauseRef.current + timestamp - startTimeRef.current
-          : elapsedBeforePauseRef.current;
+          ? timestamp - startTimeRef.current
+          : 0;
       const remainingMs = Math.max(TEST_DURATION_MS - elapsedMs, 0);
       const finish = target
         ? getTargetScreenPosition(target, rect.width, rect.height)
         : null;
       const cursor = cursorRef.current;
       pushTrailPoint(trailRef.current, cursor);
-
-      if (finish) {
-        const currentDistance = distance(cursor, finish);
-
-        closestDistanceRef.current = Math.min(
-          closestDistanceRef.current,
-          currentDistance,
-        );
-      }
 
       setTimeLeftMs(remainingMs);
       drawScene(context, rect.width, rect.height, finish, cursor, trailRef.current);
@@ -377,11 +258,9 @@ export default function FlickTest() {
     stopAnimation();
     phaseRef.current = "running";
     setPhase("running");
-    setTimeLeftMs(Math.max(TEST_DURATION_MS - elapsedBeforePauseRef.current, 0));
+    setTimeLeftMs(TEST_DURATION_MS);
     const runStartedAt = performance.now();
     startTimeRef.current = runStartedAt;
-    targetSpawnedAtRef.current = runStartedAt;
-    closestDistanceRef.current = Number.POSITIVE_INFINITY;
     animationFrameRef.current = requestAnimationFrame((timestamp) => {
       runFrameRef.current(timestamp);
     });
@@ -403,10 +282,6 @@ export default function FlickTest() {
     });
   }, [spawnTarget, stopAnimation]);
 
-  const resumeTest = useCallback(() => {
-    beginCountdown();
-  }, [beginCountdown]);
-
   useEffect(() => {
     runFrameRef.current = runFrame;
   }, [runFrame]);
@@ -418,7 +293,6 @@ export default function FlickTest() {
       }
 
       stopAnimation();
-      elapsedBeforePauseRef.current = TEST_DURATION_MS;
       phaseRef.current = "complete";
       setPhase("complete");
       setTimeLeftMs(0);
@@ -434,17 +308,12 @@ export default function FlickTest() {
     }
 
     stopAnimation();
-    attemptsRef.current = [];
-    overshootRef.current = 0;
-    undershootRef.current = 0;
     trailRef.current = [];
     targetRef.current = null;
     const rect = canvas.getBoundingClientRect();
     resetCursor(rect.width, rect.height);
-    setMetrics(null);
     setCountdown(COUNTDOWN_SECONDS);
     setTimeLeftMs(TEST_DURATION_MS);
-    elapsedBeforePauseRef.current = 0;
 
     beginCountdown();
   }, [beginCountdown, resetCursor, stopAnimation]);
@@ -459,30 +328,6 @@ export default function FlickTest() {
     if (!canvas || !target) {
       return;
     }
-
-    const rect = canvas.getBoundingClientRect();
-    const finish = getTargetScreenPosition(target, rect.width, rect.height);
-    const cursor = cursorRef.current;
-    const finalDistancePx = distance(cursor, finish);
-    const wasHit = finalDistancePx <= TARGET_RADIUS;
-    const timeToClickMs = performance.now() - targetSpawnedAtRef.current;
-
-    if (!wasHit) {
-      const missResult = getFlickMissResultFromDistance(
-        finalDistancePx,
-        closestDistanceRef.current,
-        TARGET_RADIUS,
-      );
-
-      overshootRef.current += missResult.overshoot;
-      undershootRef.current += missResult.undershoot;
-    }
-
-    attemptsRef.current.push({
-      wasHit,
-      timeToClickMs,
-      missDistancePx: wasHit ? 0 : finalDistancePx,
-    });
 
     spawnTarget();
   }, [spawnTarget]);
@@ -535,29 +380,6 @@ export default function FlickTest() {
     };
   }, [handleShoot]);
 
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && phaseRef.current === "running") {
-        pauseTest();
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [pauseTest]);
-
-  const handlePrimaryAction = useCallback(() => {
-    if (phase === "paused") {
-      resumeTest();
-      return;
-    }
-
-    startTest();
-  }, [phase, resumeTest, startTest]);
-
   return (
     <main className="h-screen overflow-hidden bg-black text-zinc-100">
       <section className="relative flex h-full flex-col">
@@ -594,11 +416,7 @@ export default function FlickTest() {
           <div className="absolute inset-0 z-20 flex items-center justify-center overflow-y-auto bg-black/70 px-6 py-8">
             <div className="max-h-[calc(100vh-4rem)] w-full max-w-2xl overflow-y-auto border border-zinc-800 bg-black p-6 text-center shadow-2xl">
               <p className="text-sm uppercase text-zinc-500">
-                {phase === "paused"
-                  ? "Paused"
-                  : phase === "complete"
-                    ? "Feedback"
-                    : "30 seconds"}
+                {phase === "complete" ? "Feedback" : "30 seconds"}
               </p>
               {phase === "complete" ? (
                 <>
@@ -640,13 +458,9 @@ export default function FlickTest() {
               <button
                 className="mt-6 w-full border border-emerald-400 bg-emerald-400 px-5 py-3 font-semibold text-black transition hover:bg-emerald-300"
                 type="button"
-                onClick={handlePrimaryAction}
+                onClick={startTest}
               >
-                {phase === "paused"
-                  ? "Continue"
-                  : phase === "complete"
-                    ? "Run again"
-                    : "Start flick test"}
+                {phase === "complete" ? "Run again" : "Start flick test"}
               </button>
               <Link
                 className="mt-3 block w-full border border-zinc-700 px-5 py-3 font-semibold text-zinc-200 transition hover:border-zinc-500 hover:text-white"

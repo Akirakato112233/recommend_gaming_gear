@@ -1,10 +1,4 @@
-from pydantic import BaseModel, ConfigDict, Field
-
-
-class RagSearchRequest(BaseModel):
-    query_text: str = Field(..., min_length=1)
-    candidate_mouse_ids: list[str] = Field(..., min_length=1)
-    top_k: int = Field(default=8, ge=1, le=20)
+from pydantic import BaseModel, ConfigDict
 
 
 class RagChunkResponse(BaseModel):

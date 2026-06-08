@@ -6,7 +6,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.config import settings
 from app.db.database import Base
-from app.models.session import new_uuid, utc_now
+from app.models.common import new_uuid, utc_now
 
 
 class RagChunk(Base):

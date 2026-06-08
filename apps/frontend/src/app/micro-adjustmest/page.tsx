@@ -9,7 +9,6 @@ import {
   type Point,
   DEFAULT_CAMERA_AIM,
   clamp,
-  distance,
   projectAngularTarget,
   randomInRange,
 } from "../fps-camera";
@@ -20,38 +19,10 @@ const TARGET_RADIUS = 18;
 const CURSOR_RADIUS = 5;
 const TRAIL_LIMIT = 90;
 
-type TestPhase = "idle" | "countdown" | "running" | "paused" | "complete";
+type TestPhase = "idle" | "countdown" | "running" | "complete";
 
 
 type Target = AngularTarget;
-
-type MicroAdjustmentResult = {
-  hit: number;
-  overCorrection: number;
-  underCorrection: number;
-};
-
-type MicroAttempt = {
-  wasHit: boolean;
-  timeToClickMs: number;
-  missDistancePx: number;
-  startDistancePx: number;
-  finalDistancePx: number;
-  closestDistancePx: number;
-};
-
-type MicroMetrics = {
-  hits: number;
-  misses: number;
-  accuracy: number;
-  averageTimeToClickMs: number;
-  averageMissDistancePx: number;
-  averageStartDistancePx: number;
-  overCorrectionRate: number;
-  underCorrectionRate: number;
-  fineControlScore: number;
-};
-
 
 function generateMicroTarget(): Target {
   const angle = Math.random() * Math.PI * 2;
@@ -95,97 +66,6 @@ function pushTrailPoint(trail: Point[], point: Point) {
   }
 }
 
-
-function getMicroAdjustmentResult(
-  finalDistancePx: number,
-  closestDistancePx: number,
-  targetRadiusPx: number,
-): MicroAdjustmentResult {
-  if (finalDistancePx <= targetRadiusPx) {
-    return {
-      hit: 1,
-      overCorrection: 0,
-      underCorrection: 0,
-    };
-  }
-
-  const reachedTargetZone = closestDistancePx <= targetRadiusPx * 1.25;
-  const driftedAwayAfterCorrection =
-    finalDistancePx > closestDistancePx + targetRadiusPx * 0.75;
-
-  if (reachedTargetZone && driftedAwayAfterCorrection) {
-    return {
-      hit: 0,
-      overCorrection: 1,
-      underCorrection: 0,
-    };
-  }
-
-  return {
-    hit: 0,
-    overCorrection: 0,
-    underCorrection: 1,
-  };
-}
-
-function average(values: number[]) {
-  if (values.length === 0) {
-    return 0;
-  }
-
-  return values.reduce((sum, value) => sum + value, 0) / values.length;
-}
-
-function calculateFineControlScore(
-  accuracy: number,
-  averageMissDistancePx: number,
-  overCorrectionRate: number,
-  underCorrectionRate: number,
-) {
-  const missPrecision = clamp(1 - averageMissDistancePx / (TARGET_RADIUS * 3), 0, 1);
-  const correctionPenalty = overCorrectionRate * 0.25 + underCorrectionRate * 0.15;
-
-  return clamp(accuracy * 0.7 + missPrecision * 0.3 - correctionPenalty, 0, 1);
-}
-
-function calculateMetrics(
-  attempts: MicroAttempt[],
-  overCorrections: number,
-  underCorrections: number,
-): MicroMetrics {
-  const hits = attempts.filter((attempt) => attempt.wasHit).length;
-  const misses = attempts.length - hits;
-  const missAttempts = attempts.filter((attempt) => !attempt.wasHit);
-  const accuracy = attempts.length === 0 ? 0 : hits / attempts.length;
-  const averageMissDistancePx = average(
-    missAttempts.map((attempt) => attempt.missDistancePx),
-  );
-  const overCorrectionRate = misses === 0 ? 0 : overCorrections / misses;
-  const underCorrectionRate = misses === 0 ? 0 : underCorrections / misses;
-
-  return {
-    hits,
-    misses,
-    accuracy: Number(accuracy.toFixed(3)),
-    averageTimeToClickMs: Math.round(
-      average(attempts.map((attempt) => attempt.timeToClickMs)),
-    ),
-    averageMissDistancePx: Number(averageMissDistancePx.toFixed(1)),
-    averageStartDistancePx: Number(
-      average(attempts.map((attempt) => attempt.startDistancePx)).toFixed(1),
-    ),
-    overCorrectionRate: Number(overCorrectionRate.toFixed(3)),
-    underCorrectionRate: Number(underCorrectionRate.toFixed(3)),
-    fineControlScore: Number(
-      calculateFineControlScore(
-        accuracy,
-        averageMissDistancePx,
-        overCorrectionRate,
-        underCorrectionRate,
-      ).toFixed(3),
-    ),
-  };
-}
 
 function drawScene(
   context: CanvasRenderingContext2D,
@@ -252,23 +132,15 @@ export default function MicroAdjustmentTest() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const runFrameRef = useRef<(timestamp: number) => void>(() => {});
-  const attemptsRef = useRef<MicroAttempt[]>([]);
   const cursorRef = useRef<Point>({ x: 0, y: 0 });
   const trailRef = useRef<Point[]>([]);
   const targetRef = useRef<Target | null>(null);
-  const targetSpawnedAtRef = useRef(0);
-  const startDistanceRef = useRef(0);
-  const closestDistanceRef = useRef(Number.POSITIVE_INFINITY);
   const startTimeRef = useRef(0);
-  const elapsedBeforePauseRef = useRef(0);
-  const overCorrectionRef = useRef(0);
-  const underCorrectionRef = useRef(0);
   const phaseRef = useRef<TestPhase>("idle");
 
   const [phase, setPhase] = useState<TestPhase>("idle");
   const [countdown, setCountdown] = useState(COUNTDOWN_SECONDS);
   const [timeLeftMs, setTimeLeftMs] = useState(TEST_DURATION_MS);
-  const [, setMetrics] = useState<MicroMetrics | null>(null);
 
   const displayTime = useMemo(() => {
     if (phase === "countdown") {
@@ -278,13 +150,7 @@ export default function MicroAdjustmentTest() {
     return `${Math.ceil(timeLeftMs / 1000)}s`;
   }, [countdown, phase, timeLeftMs]);
 
-  const pointerStatusText = useMemo(() => {
-    if (phase === "paused") {
-      return "Paused";
-    }
-
-    return "Normal cursor speed";
-  }, [phase]);
+  const pointerStatusText = "Normal cursor speed";
 
   const stopAnimation = useCallback(() => {
     if (animationFrameRef.current !== null) {
@@ -297,20 +163,9 @@ export default function MicroAdjustmentTest() {
     cursorRef.current = getCanvasCenter(width, height);
   }, []);
 
-  const spawnTarget = useCallback((width: number, height: number) => {
+  const spawnTarget = useCallback(() => {
     trailRef.current = [];
-    const target = generateMicroTarget();
-    const finish = getTargetScreenPosition(
-      target,
-      width,
-      height,
-    );
-    const startDistancePx = distance(cursorRef.current, finish);
-
-    targetRef.current = target;
-    startDistanceRef.current = startDistancePx;
-    targetSpawnedAtRef.current = performance.now();
-    closestDistanceRef.current = startDistancePx;
+    targetRef.current = generateMicroTarget();
   }, []);
 
   const resizeCanvas = useCallback(() => {
@@ -340,33 +195,10 @@ export default function MicroAdjustmentTest() {
 
   const finishTest = useCallback(() => {
     stopAnimation();
-    elapsedBeforePauseRef.current = TEST_DURATION_MS;
     phaseRef.current = "complete";
     setPhase("complete");
     setTimeLeftMs(0);
-    setMetrics(
-      calculateMetrics(
-        attemptsRef.current,
-        overCorrectionRef.current,
-        underCorrectionRef.current,
-      ),
-    );
     setDiagnosticComplete("micro");
-  }, [stopAnimation]);
-
-  const pauseTest = useCallback(() => {
-    stopAnimation();
-
-    const elapsedMs = clamp(
-      elapsedBeforePauseRef.current + performance.now() - startTimeRef.current,
-      0,
-      TEST_DURATION_MS,
-    );
-
-    elapsedBeforePauseRef.current = elapsedMs;
-    phaseRef.current = "paused";
-    setPhase("paused");
-    setTimeLeftMs(Math.max(TEST_DURATION_MS - elapsedMs, 0));
   }, [stopAnimation]);
 
   const runFrame = useCallback(
@@ -381,23 +213,14 @@ export default function MicroAdjustmentTest() {
       const target = targetRef.current;
       const elapsedMs =
         phaseRef.current === "running"
-          ? elapsedBeforePauseRef.current + timestamp - startTimeRef.current
-          : elapsedBeforePauseRef.current;
+          ? timestamp - startTimeRef.current
+          : 0;
       const remainingMs = Math.max(TEST_DURATION_MS - elapsedMs, 0);
       const finish = target
         ? getTargetScreenPosition(target, rect.width, rect.height)
         : null;
       const cursor = cursorRef.current;
       pushTrailPoint(trailRef.current, cursor);
-
-      if (finish) {
-        const currentDistance = distance(cursor, finish);
-
-        closestDistanceRef.current = Math.min(
-          closestDistanceRef.current,
-          currentDistance,
-        );
-      }
 
       setTimeLeftMs(remainingMs);
       drawScene(context, rect.width, rect.height, finish, cursor, trailRef.current);
@@ -420,20 +243,17 @@ export default function MicroAdjustmentTest() {
       return;
     }
 
-    const rect = canvas.getBoundingClientRect();
     if (!targetRef.current) {
-      spawnTarget(rect.width, rect.height);
+      spawnTarget();
     }
 
     stopAnimation();
     phaseRef.current = "running";
     setPhase("running");
-    setTimeLeftMs(Math.max(TEST_DURATION_MS - elapsedBeforePauseRef.current, 0));
+    setTimeLeftMs(TEST_DURATION_MS);
 
     const runStartedAt = performance.now();
     startTimeRef.current = runStartedAt;
-    targetSpawnedAtRef.current = runStartedAt;
-    closestDistanceRef.current = startDistanceRef.current;
 
     animationFrameRef.current = requestAnimationFrame((timestamp) => {
       runFrameRef.current(timestamp);
@@ -446,9 +266,8 @@ export default function MicroAdjustmentTest() {
       return;
     }
 
-    const rect = canvas.getBoundingClientRect();
     stopAnimation();
-    spawnTarget(rect.width, rect.height);
+    spawnTarget();
     setCountdown(COUNTDOWN_SECONDS);
     phaseRef.current = "countdown";
     setPhase("countdown");
@@ -456,10 +275,6 @@ export default function MicroAdjustmentTest() {
       runFrameRef.current(timestamp);
     });
   }, [spawnTarget, stopAnimation]);
-
-  const resumeTest = useCallback(() => {
-    beginCountdown();
-  }, [beginCountdown]);
 
   useEffect(() => {
     runFrameRef.current = runFrame;
@@ -472,7 +287,6 @@ export default function MicroAdjustmentTest() {
       }
 
       stopAnimation();
-      elapsedBeforePauseRef.current = TEST_DURATION_MS;
       phaseRef.current = "complete";
       setPhase("complete");
       setTimeLeftMs(0);
@@ -488,17 +302,12 @@ export default function MicroAdjustmentTest() {
     }
 
     stopAnimation();
-    attemptsRef.current = [];
-    overCorrectionRef.current = 0;
-    underCorrectionRef.current = 0;
     trailRef.current = [];
     targetRef.current = null;
     const rect = canvas.getBoundingClientRect();
     resetCursor(rect.width, rect.height);
-    setMetrics(null);
     setCountdown(COUNTDOWN_SECONDS);
     setTimeLeftMs(TEST_DURATION_MS);
-    elapsedBeforePauseRef.current = 0;
 
     beginCountdown();
   }, [beginCountdown, resetCursor, stopAnimation]);
@@ -514,31 +323,7 @@ export default function MicroAdjustmentTest() {
       return;
     }
 
-    const rect = canvas.getBoundingClientRect();
-    const finish = getTargetScreenPosition(target, rect.width, rect.height);
-    const cursor = cursorRef.current;
-    const finalDistancePx = distance(cursor, finish);
-    const result = getMicroAdjustmentResult(
-      finalDistancePx,
-      closestDistanceRef.current,
-      TARGET_RADIUS,
-    );
-    const wasHit = result.hit === 1;
-    const timeToClickMs = performance.now() - targetSpawnedAtRef.current;
-
-    overCorrectionRef.current += result.overCorrection;
-    underCorrectionRef.current += result.underCorrection;
-
-    attemptsRef.current.push({
-      wasHit,
-      timeToClickMs,
-      missDistancePx: wasHit ? 0 : finalDistancePx,
-      startDistancePx: startDistanceRef.current,
-      finalDistancePx,
-      closestDistancePx: closestDistanceRef.current,
-    });
-
-    spawnTarget(rect.width, rect.height);
+    spawnTarget();
   }, [spawnTarget]);
 
   useEffect(() => {
@@ -589,29 +374,6 @@ export default function MicroAdjustmentTest() {
     };
   }, [handleShoot]);
 
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && phaseRef.current === "running") {
-        pauseTest();
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [pauseTest]);
-
-  const handlePrimaryAction = useCallback(() => {
-    if (phase === "paused") {
-      resumeTest();
-      return;
-    }
-
-    startTest();
-  }, [phase, resumeTest, startTest]);
-
   return (
     <main className="h-screen overflow-hidden bg-black text-zinc-100">
       <section className="relative flex h-full flex-col">
@@ -648,11 +410,7 @@ export default function MicroAdjustmentTest() {
           <div className="absolute inset-0 z-20 flex items-center justify-center overflow-y-auto bg-black/70 px-6 py-8">
             <div className="max-h-[calc(100vh-4rem)] w-full max-w-2xl overflow-y-auto border border-zinc-800 bg-black p-6 text-center shadow-2xl">
               <p className="text-sm uppercase text-zinc-500">
-                {phase === "paused"
-                  ? "Paused"
-                  : phase === "complete"
-                    ? "Feedback"
-                    : "30 seconds"}
+                {phase === "complete" ? "Feedback" : "30 seconds"}
               </p>
               {phase === "complete" ? (
                 <>
@@ -694,13 +452,9 @@ export default function MicroAdjustmentTest() {
               <button
                 className="mt-6 w-full border border-emerald-400 bg-emerald-400 px-5 py-3 font-semibold text-black transition hover:bg-emerald-300"
                 type="button"
-                onClick={handlePrimaryAction}
+                onClick={startTest}
               >
-                {phase === "paused"
-                  ? "Continue"
-                  : phase === "complete"
-                    ? "Run again"
-                    : "Start micro test"}
+                {phase === "complete" ? "Run again" : "Start micro test"}
               </button>
               <Link
                 className="mt-3 block w-full border border-zinc-700 px-5 py-3 font-semibold text-zinc-200 transition hover:border-zinc-500 hover:text-white"

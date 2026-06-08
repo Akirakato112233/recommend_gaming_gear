@@ -1,17 +1,7 @@
 from pydantic import BaseModel, Field, AliasChoices
 
-from app.schemas.profile import UserProfileCreate, UserProfileResponse
+from app.schemas.profile import UserProfileCreate
 from app.schemas.rag import RagChunkResponse
-
-
-class RecommendationCompleteRequest(BaseModel):
-    profile: UserProfileCreate
-    recommendation_summary: str = Field(min_length=1, max_length=2000)
-
-
-class RecommendationCompleteResponse(BaseModel):
-    profile: UserProfileResponse
-    recommendation_summary: str
 
 
 class DiagnosticFeedbackInput(BaseModel):

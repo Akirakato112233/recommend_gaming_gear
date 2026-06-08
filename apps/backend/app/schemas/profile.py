@@ -1,6 +1,6 @@
 from enum import StrEnum
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, Field, model_validator
 
 
 class Game(StrEnum):
@@ -62,10 +62,3 @@ class UserProfileCreate(BaseModel):
     hand_width_mm: float = Field(gt=0)
     current_mouse: CurrentMouseFeedback
     preference: UserPreference = Field(default_factory=UserPreference)
-
-
-class UserProfileResponse(UserProfileCreate):
-    id: str
-    session_id: str
-
-    model_config = ConfigDict(from_attributes=True)
