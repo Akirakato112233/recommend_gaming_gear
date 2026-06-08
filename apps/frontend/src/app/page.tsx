@@ -212,6 +212,14 @@ export default function Home() {
             ))}
           </nav>
 
+          <Link
+            className="mt-3 flex min-h-11 items-center justify-between border border-emerald-400/40 bg-emerald-400/10 px-4 py-3 text-sm font-semibold text-emerald-100 transition hover:border-emerald-300 hover:text-white focus:outline-none focus:ring-2 focus:ring-emerald-300"
+            href="/analysis"
+          >
+            <span>AI analysis</span>
+            <span className="font-mono text-xs uppercase text-emerald-300">open</span>
+          </Link>
+
           <div className="mt-7 border border-amber-400/30 bg-amber-400/10 p-4 text-sm leading-6 text-amber-100">
             Anonymous draft. Region locked to Thailand. DB save comes after final
             recommendation.

@@ -1,6 +1,7 @@
 from pydantic import BaseModel, Field
 
 from app.schemas.profile import UserProfileCreate, UserProfileResponse
+from app.schemas.rag import RagChunkResponse
 
 
 class RecommendationCompleteRequest(BaseModel):
@@ -11,3 +12,24 @@ class RecommendationCompleteRequest(BaseModel):
 class RecommendationCompleteResponse(BaseModel):
     profile: UserProfileResponse
     recommendation_summary: str
+
+
+class DiagnosticFeedbackInput(BaseModel):
+    feel: str
+    note: str
+    updated_at: str
+
+
+class RecommendationSummaryRequest(BaseModel):
+    profile: UserProfileCreate
+    candidate_mouse_ids: list[str] = Field(..., min_length=1)
+    top_k: int = Field(default=8, ge=1, le=20)
+    diagnostic_progress: dict[str, str] = Field(default_factory=dict)
+    diagnostic_feedback: dict[str, DiagnosticFeedbackInput] = Field(default_factory=dict)
+    client_context: str = ""
+
+
+class RecommendationSummaryResponse(BaseModel):
+    summary: str
+    candidate_mouse_ids: list[str]
+    evidence_chunks: list[RagChunkResponse]

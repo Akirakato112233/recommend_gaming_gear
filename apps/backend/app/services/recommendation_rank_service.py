@@ -1,3 +1,5 @@
+import re
+
 from sqlalchemy.orm import Session
 
 from app.models.rag import RagChunk
@@ -14,10 +16,13 @@ def get_relevant_chunks(
     candidate_mouse_ids: list[str],
     top_k: int = DEFAULT_TOP_K,
 ) -> list[RagChunk]:
+    normalized_candidate_mouse_ids = [
+        _normalize_mouse_id(mouse_id) for mouse_id in candidate_mouse_ids
+    ]
     return search_rag_chunks(
         db=db,
         query_text=build_recommendation_query_text(profile),
-        candidate_mouse_ids=candidate_mouse_ids,
+        candidate_mouse_ids=normalized_candidate_mouse_ids,
         top_k=top_k,
     )
 
@@ -80,3 +85,8 @@ def _describe_grip(grip_style: GripStyle) -> str:
     if grip_style == GripStyle.FINGERTIP:
         return "fingertip, fingertip grip, finger freedom"
     return "hybrid grip, flexible grip"
+
+
+def _normalize_mouse_id(mouse_id: str) -> str:
+    normalized = re.sub(r"[^a-z0-9]+", "_", mouse_id.strip().lower())
+    return normalized.strip("_")

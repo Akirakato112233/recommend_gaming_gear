@@ -52,6 +52,10 @@ function getStoredFeedback(): StoredDiagnosticFeedback {
   }
 }
 
+export function getDiagnosticFeedback(): StoredDiagnosticFeedback {
+  return getStoredFeedback();
+}
+
 function saveFeedback(testKey: DiagnosticKey, feedback: DiagnosticFeedback) {
   if (typeof window === "undefined") {
     return;
