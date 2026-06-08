@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, AliasChoices
 
 from app.schemas.profile import UserProfileCreate, UserProfileResponse
 from app.schemas.rag import RagChunkResponse
@@ -17,7 +17,9 @@ class RecommendationCompleteResponse(BaseModel):
 class DiagnosticFeedbackInput(BaseModel):
     feel: str
     note: str
-    updated_at: str
+    updated_at: str = Field(
+        validation_alias=AliasChoices("updated_at", "updatedAt"),
+    )
 
 
 class RecommendationSummaryRequest(BaseModel):
